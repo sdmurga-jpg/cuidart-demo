@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CuidarT · Código QR</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{--bg:#f4f7fb;--card:#fff;--tx:#12263f;--mut:#5f7189;--pri:#0a7cff;--bd:#dbe4ef}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--tx);display:flex;justify-content:center;padding:24px 16px}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:20px;padding:28px;max-width:440px;width:100%;text-align:center;box-shadow:0 8px 30px rgba(10,40,90,.08)}
+  h1{font-size:22px;margin:0 0 4px}
+  p{color:var(--mut);margin:0 0 18px;font-size:15px}
+  #qr{display:inline-block;padding:16px;background:#fff;border:1px solid var(--bd);border-radius:14px}
+  #qr img,#qr canvas{display:block}
+  label{display:block;text-align:left;font-size:13px;color:var(--mut);margin:20px 0 6px}
+  input{width:100%;padding:12px;border:1px solid var(--bd);border-radius:10px;font-size:14px}
+  .row{display:flex;gap:10px;margin-top:16px}
+  button{flex:1;padding:12px;border:0;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;background:var(--pri);color:#fff}
+  button.sec{background:#e8eff8;color:var(--tx)}
+  .url{margin-top:14px;font-size:13px;word-break:break-all;color:var(--mut)}
+  @media print{body{background:#fff}.card{box-shadow:none;border:0}.no-print{display:none}}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Escaneá y probá CuidarT</h1>
+  <p>Abrí la cámara de tu celular y apuntá al código.</p>
+  <div id="qr"></div>
+  <div class="url" id="url-txt"></div>
+  <div class="no-print">
+    <label for="url">Dirección de la app (se completa sola)</label>
+    <input id="url" type="url" placeholder="https://usuario.github.io/repo/">
+    <div class="row">
+      <button id="dl">Descargar PNG</button>
+      <button class="sec" onclick="window.print()">Imprimir</button>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var q = new URLSearchParams(location.search).get('url');
+  var def = q || location.href.replace(/qr\.html.*$/, '');
+  var input = document.getElementById('url');
+  input.value = def;
+  var box = document.getElementById('qr');
+  function draw(){
+    var u = input.value.trim();
+    box.innerHTML = '';
+    document.getElementById('url-txt').textContent = u;
+    if(!u) return;
+    new QRCode(box, {text:u, width:260, height:260, colorDark:'#12263f', colorLight:'#ffffff', correctLevel:QRCode.CorrectLevel.H});
+  }
+  input.addEventListener('input', draw);
+  draw();
+  document.getElementById('dl').onclick = function(){
+    var c = box.querySelector('canvas'); if(!c) return;
+    var a = document.createElement('a');
+    a.href = c.toDataURL('image/png'); a.download = 'cuidart-qr.png'; a.click();
+  };
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1880 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CuidarT · App Paciente</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Nunito+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ===== RESET & BASE ===== */
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  font-family:'Nunito Sans',sans-serif;
+  background:linear-gradient(145deg,#e8f4fd 0%,#dbeefe 40%,#e4f0fb 100%);
+  min-height:100vh;
+  display:flex;align-items:center;justify-content:center;
+  padding:20px;
+}
+
+/* Full viewport mode when narrow */
+@media (max-width:440px){
+  body{
+    padding:0;
+    background:#fff;
+    align-items:flex-start;
+  }
+  .phone-shell{
+    width:100vw !important;
+    height:100dvh !important;
+    border-radius:0 !important;
+    box-shadow:none !important;
+  }
+  .phone-shell::before{ display:none !important; }
+  .phone-shell::after{ display:none !important; }
+}
+
+/* ===== PHONE SHELL ===== */
+.phone-shell{
+  width:390px;
+  height:min(844px, 96dvh);
+  background:#fff;
+  border-radius:50px;
+  box-shadow:
+    0 0 0 10px #1a1a2e,
+    0 0 0 12px #2a2a4e,
+    0 30px 80px rgba(0,0,0,0.35),
+    0 10px 30px rgba(0,0,0,0.2);
+  position:relative;overflow:hidden;
+  display:flex;flex-direction:column;
+}
+/* Camera notch */
+.phone-shell::before{
+  content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);
+  width:120px;height:34px;background:#1a1a2e;border-radius:0 0 20px 20px;z-index:200;
+}
+/* Side buttons */
+.phone-shell::after{
+  content:'';position:absolute;right:-13px;top:120px;
+  width:5px;height:60px;background:#1a1a2e;border-radius:0 3px 3px 0;
+  box-shadow:0 80px 0 #1a1a2e,0 -80px 0 #1a1a2e;
+}
+
+/* ===== STATUS BAR ===== */
+.status-bar{
+  height:44px;padding:10px 24px 0;
+  display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;z-index:100;
+  font-size:12px;font-weight:700;color:#0f1f35;font-family:'Nunito',sans-serif;
+}
+.status-right{display:flex;align-items:center;gap:5px;}
+.signal-bars{display:flex;gap:2px;align-items:flex-end;}
+.signal-bars span{width:3px;background:#0f1f35;border-radius:1px;}
+.signal-bars span:nth-child(1){height:4px;}
+.signal-bars span:nth-child(2){height:7px;}
+.signal-bars span:nth-child(3){height:10px;}
+.signal-bars span:nth-child(4){height:13px;}
+.battery-icon{width:22px;height:11px;border:1.5px solid #0f1f35;border-radius:2px;position:relative;display:flex;align-items:center;padding:1px;}
+.battery-icon::after{content:'';position:absolute;right:-5px;top:50%;transform:translateY(-50%);width:3px;height:5px;background:#0f1f35;border-radius:0 1px 1px 0;}
+.battery-fill{height:100%;width:75%;background:#0f1f35;border-radius:1px;}
+
+/* ===== SCREEN AREA ===== */
+.screen{
+  flex:1;overflow:hidden;position:relative;
+  display:flex;flex-direction:column;
+  min-height:0;
+}
+.screen-scroll{
+  flex:1;overflow-y:auto;overflow-x:hidden;
+  scroll-behavior:smooth;
+  min-height:0;
+}
+.screen-scroll::-webkit-scrollbar{display:none;}
+
+/* ===== VIEWS ===== */
+.view{display:none;}
+.view.active{display:block;animation:fadeUp 0.3s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ===== BOTTOM NAV ===== */
+.bottom-nav{
+  height:76px;flex-shrink:0;
+  background:#fff;
+  border-top:1px solid #e8f0f8;
+  display:flex;align-items:flex-start;justify-content:space-around;
+  padding:10px 0 0;
+  position:relative;z-index:100;
+}
+.nav-btn{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  cursor:pointer;padding:4px 12px;border-radius:12px;
+  transition:all 0.2s;position:relative;
+  min-width:56px;
+}
+.nav-btn.active{color:#1a6bc4;}
+.nav-btn:not(.active){color:#94a3b8;}
+.nav-btn i{font-size:22px;}
+.nav-btn span{font-size:10px;font-weight:700;font-family:'Nunito',sans-serif;}
+.nav-btn .nav-dot{
+  position:absolute;top:2px;right:10px;
+  width:8px;height:8px;border-radius:50%;background:#ef4444;
+  border:2px solid #fff;
+}
+.nav-active-pill{
+  position:absolute;bottom:0;width:32px;height:3px;
+  background:#1a6bc4;border-radius:2px 2px 0 0;
+}
+
+/* ===== COLORS & TOKENS ===== */
+:root{
+  --blue:#1a6bc4;
+  --blue-light:#e8f2fd;
+  --blue-mid:#3b82f6;
+  --green:#10b981;
+  --green-light:#d1fae5;
+  --red:#ef4444;
+  --red-light:#fee2e2;
+  --orange:#f97316;
+  --orange-light:#ffedd5;
+  --yellow:#f59e0b;
+  --yellow-light:#fef3c7;
+  --purple:#8b5cf6;
+  --purple-light:#ede9fe;
+  --gray-50:#f8fafc;
+  --gray-100:#f1f5f9;
+  --gray-200:#e2e8f0;
+  --gray-300:#cbd5e1;
+  --gray-500:#64748b;
+  --gray-700:#334155;
+  --gray-900:#0f172a;
+  --text:#0f1f35;
+  --text2:#3a5068;
+  --text3:#7a90aa;
+  --radius:16px;
+  --radius-sm:10px;
+  --shadow:0 4px 20px rgba(26,107,196,0.1);
+  --shadow-sm:0 2px 8px rgba(0,0,0,0.08);
+}
+
+/* ===== TYPOGRAPHY ===== */
+.t-huge{font-family:'Nunito',sans-serif;font-size:28px;font-weight:900;line-height:1.1;color:var(--text);}
+.t-big{font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--text);}
+.t-title{font-family:'Nunito',sans-serif;font-size:18px;font-weight:800;color:var(--text);}
+.t-sub{font-size:14px;font-weight:600;color:var(--text2);}
+.t-body{font-size:15px;font-weight:500;color:var(--text2);line-height:1.5;}
+.t-small{font-size:12px;font-weight:600;color:var(--text3);}
+.t-label{font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--text3);}
+
+/* ===== COMPONENTS ===== */
+
+/* App Header */
+.app-header{
+  padding:16px 20px 12px;
+  display:flex;align-items:center;justify-content:space-between;
+  background:#fff;
+  position:sticky;top:0;z-index:50;
+  border-bottom:1px solid transparent;
+}
+.app-header.bordered{border-bottom-color:var(--gray-100);}
+.header-logo{height:30px;width:auto;object-fit:contain;}
+.header-icon-btn{
+  width:40px;height:40px;border-radius:12px;
+  background:var(--blue-light);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;position:relative;color:var(--blue);font-size:18px;
+  transition:all 0.2s;border:none;
+}
+.header-icon-btn:active{transform:scale(0.94);}
+.notif-badge{
+  position:absolute;top:7px;right:7px;
+  width:7px;height:7px;border-radius:50%;background:var(--red);
+  border:2px solid #fff;
+}
+
+/* Card */
+.card{
+  background:#fff;border-radius:var(--radius);
+  box-shadow:var(--shadow-sm);
+  overflow:hidden;
+}
+.card-p{padding:18px;}
+
+/* Section */
+.section{padding:0 16px;margin-bottom:14px;}
+.section-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.see-all{font-size:13px;font-weight:700;color:var(--blue);cursor:pointer;}
+
+/* Vital Badge */
+.vital-card{
+  border-radius:var(--radius);padding:12px;
+  display:flex;flex-direction:column;gap:6px;
+  position:relative;overflow:hidden;
+}
+.vital-val{font-family:'Nunito',sans-serif;font-size:22px;font-weight:900;line-height:1;}
+.vital-unit{font-size:11px;font-weight:700;color:var(--text3);}
+.vital-label{font-size:12px;font-weight:700;color:var(--text2);}
+.vital-trend{font-size:11px;font-weight:700;}
+.vital-icon{position:absolute;bottom:12px;right:12px;font-size:28px;opacity:0.15;}
+
+/* Status dot */
+.sdot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+.sdot-green{background:var(--green);}
+.sdot-yellow{background:var(--yellow);}
+.sdot-red{background:var(--red);animation:blink 1.5s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.4}}
+
+/* Big button */
+.btn-big{
+  width:100%;padding:18px;border-radius:var(--radius);
+  font-family:'Nunito',sans-serif;font-size:17px;font-weight:800;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;
+  transition:all 0.2s;border:none;
+}
+.btn-big:active{transform:scale(0.97);}
+.btn-primary{background:var(--blue);color:#fff;box-shadow:0 4px 16px rgba(26,107,196,0.3);}
+.btn-green{background:var(--green);color:#fff;box-shadow:0 4px 16px rgba(16,185,129,0.3);}
+.btn-red{background:var(--red);color:#fff;box-shadow:0 4px 20px rgba(239,68,68,0.4);}
+.btn-outline{background:#fff;color:var(--blue);border:2px solid var(--blue);}
+.btn-gray{background:var(--gray-100);color:var(--text2);}
+.btn-sm{padding:10px 18px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:6px;transition:all 0.2s;}
+.btn-sm:active{transform:scale(0.96);}
+
+/* Chip */
+.chip{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;}
+.chip-blue{background:var(--blue-light);color:var(--blue);}
+.chip-green{background:var(--green-light);color:#065f46;}
+.chip-red{background:var(--red-light);color:#991b1b;}
+.chip-yellow{background:var(--yellow-light);color:#92400e;}
+.chip-orange{background:var(--orange-light);color:#9a3412;}
+.chip-purple{background:var(--purple-light);color:#5b21b6;}
+
+/* Progress ring */
+.ring-wrap{position:relative;display:inline-flex;align-items:center;justify-content:center;}
+.ring-label{position:absolute;text-align:center;}
+
+/* Avatar */
+.avatar{border-radius:50%;object-fit:cover;background:var(--blue-light);display:flex;align-items:center;justify-content:center;color:var(--blue);font-family:'Nunito',sans-serif;font-weight:800;}
+
+/* Divider */
+.divider{height:1px;background:var(--gray-100);margin:0 16px;}
+
+/* Chat bubble */
+.bubble{padding:12px 16px;border-radius:16px;max-width:75%;font-size:14px;font-weight:500;line-height:1.5;}
+.bubble-in{background:var(--gray-100);border-bottom-left-radius:4px;color:var(--text);}
+.bubble-out{background:var(--blue);color:#fff;border-bottom-right-radius:4px;align-self:flex-end;}
+
+/* Med item */
+.med-item{
+  display:flex;align-items:center;gap:14px;
+  padding:16px;border-bottom:1px solid var(--gray-100);
+}
+.med-icon{
+  width:48px;height:48px;border-radius:14px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;flex-shrink:0;
+}
+.med-body{flex:1;min-width:0;}
+.med-actions{display:flex;gap:6px;margin-top:8px;}
+
+/* Symptom scale */
+.scale-btn{
+  width:44px;height:44px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;font-weight:800;cursor:pointer;
+  border:2px solid transparent;transition:all 0.2s;
+  font-family:'Nunito',sans-serif;
+}
+.scale-btn.selected{border-color:var(--blue);transform:scale(1.1);}
+.scale-btn:active{transform:scale(0.95);}
+
+/* Team card */
+.team-card{
+  display:flex;align-items:center;gap:12px;
+  padding:14px;border-radius:var(--radius);
+  background:#fff;box-shadow:var(--shadow-sm);
+  margin-bottom:10px;
+}
+.team-avatar{
+  width:52px;height:52px;border-radius:16px;
+  background:var(--blue-light);
+  display:flex;align-items:center;justify-content:center;
+  font-size:24px;flex-shrink:0;
+}
+.online-dot{width:10px;height:10px;border-radius:50%;background:var(--green);border:2px solid #fff;margin-top:2px;}
+
+/* Device card */
+.device-item{
+  display:flex;align-items:center;gap:12px;
+  padding:14px;border-radius:var(--radius-sm);
+  background:var(--gray-50);margin-bottom:8px;
+}
+.device-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.battery-mini{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--text3);}
+.battery-bar-mini{width:30px;height:6px;background:var(--gray-200);border-radius:3px;overflow:hidden;}
+.battery-fill-mini{height:100%;border-radius:3px;}
+
+/* Reminder item */
+.reminder-item{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 16px;border-bottom:1px solid var(--gray-100);
+}
+.reminder-time{font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;color:var(--blue);min-width:44px;}
+
+/* Toast */
+#toast{
+  position:absolute;bottom:96px;left:16px;right:16px;
+  background:#0f1f35;color:#fff;
+  border-radius:12px;padding:14px 16px;
+  font-size:14px;font-weight:600;
+  display:none;z-index:300;
+  box-shadow:0 8px 24px rgba(0,0,0,0.2);
+  animation:slideUp 0.3s ease;
+}
+@keyframes slideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* Emergency button */
+
+@keyframes emergPulse{0%,100%{box-shadow:0 4px 20px rgba(239,68,68,0.5),0 0 0 4px rgba(239,68,68,0.15)}50%{box-shadow:0 4px 20px rgba(239,68,68,0.7),0 0 0 10px rgba(239,68,68,0.05)}}
+@keyframes emergRing{0%{transform:scale(1);opacity:0.6}50%{transform:scale(1.04);opacity:0.2}100%{transform:scale(1);opacity:0.6}}
+
+/* Greeting gradient header */
+.greeting-header{
+  background:linear-gradient(160deg,#1a6bc4 0%,#2563eb 60%,#1d4ed8 100%);
+  padding:14px 20px 24px;
+  position:relative;overflow:hidden;
+}
+.greeting-header::before{
+  content:'';position:absolute;top:-40px;right:-40px;
+  width:160px;height:160px;border-radius:50%;
+  background:rgba(255,255,255,0.07);
+}
+.greeting-header::after{
+  content:'';position:absolute;bottom:-60px;left:-30px;
+  width:200px;height:200px;border-radius:50%;
+  background:rgba(255,255,255,0.05);
+}
+
+/* Score ring SVG */
+.score-ring-wrap{position:relative;display:inline-flex;}
+.score-center{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+}
+
+/* Chart wrap */
+.chart-wrap{height:120px;position:relative;}
+.chart-wrap-sm{height:90px;position:relative;}
+
+/* Fall module */
+.fall-card{
+  border-radius:var(--radius);padding:20px;
+  background:linear-gradient(135deg,#fef3c7,#ffedd5);
+  border:1px solid #fcd34d;
+}
+
+/* Video screen */
+.video-main-area{
+  background:linear-gradient(135deg,#1e293b,#0f172a);
+  border-radius:var(--radius);
+  height:200px;
+  display:flex;align-items:center;justify-content:center;
+  position:relative;overflow:hidden;
+}
+.video-self{
+  position:absolute;bottom:10px;right:10px;
+  width:80px;height:56px;border-radius:10px;
+  background:#334155;border:2px solid rgba(255,255,255,0.2);
+  display:flex;align-items:center;justify-content:center;
+  color:rgba(255,255,255,0.5);font-size:18px;
+}
+.vc-ctrl{
+  width:48px;height:48px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;cursor:pointer;border:none;transition:all 0.2s;
+}
+.vc-ctrl:active{transform:scale(0.92);}
+
+/* Scrollable pills */
+.pill-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;}
+.pill-row::-webkit-scrollbar{display:none;}
+.pill{
+  padding:8px 16px;border-radius:20px;white-space:nowrap;
+  font-size:13px;font-weight:700;cursor:pointer;
+  transition:all 0.2s;border:none;font-family:'Nunito Sans',sans-serif;
+  flex-shrink:0;
+}
+.pill.active{background:var(--blue);color:#fff;}
+.pill:not(.active){background:var(--gray-100);color:var(--text2);}
+
+/* Onboarding splash */
+.splash{
+  position:absolute;inset:0;z-index:400;
+  background:#fff;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:16px;
+  animation:splashOut 0.5s ease 2s forwards;
+}
+@keyframes splashOut{to{opacity:0;pointer-events:none}}
+
+/* ===== INPUT ===== */
+.input-field{
+  width:100%;padding:14px 16px;border-radius:12px;
+  border:2px solid var(--gray-200);
+  font-size:15px;font-weight:500;color:var(--text);
+  font-family:'Nunito Sans',sans-serif;
+  outline:none;transition:border-color 0.2s;
+  background:#fff;
+}
+.input-field:focus{border-color:var(--blue);}
+
+/* ===== MISC ===== */
+.row{display:flex;gap:10px;}
+.row>*{flex:1;}
+.flex-between{display:flex;align-items:center;justify-content:space-between;}
+.flex-center{display:flex;align-items:center;}
+.gap-8{gap:8px;}
+.gap-12{gap:12px;}
+.mt-8{margin-top:8px;}
+.mt-12{margin-top:12px;}
+.mt-16{margin-top:16px;}
+.mb-8{margin-bottom:8px;}
+.mb-12{margin-bottom:12px;}
+.mb-16{margin-bottom:16px;}
+.p16{padding:16px;}
+.p20{padding:20px;}
+.text-white{color:#fff;}
+.text-blue{color:var(--blue);}
+.text-green{color:var(--green);}
+.text-red{color:var(--red);}
+.text-yellow{color:var(--yellow);}
+.fw-800{font-weight:800;}
+.fw-700{font-weight:700;}
+</style>
+<meta name="theme-color" content="#1a6bc4">
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+</head>
+<body>
+
+<div class="phone-shell">
+
+  <!-- STATUS BAR -->
+  <div class="status-bar">
+    <span id="clock-time" style="font-size:15px;font-weight:800">9:41</span>
+    <div class="status-right">
+      <div class="signal-bars"><span></span><span></span><span></span><span></span></div>
+      <span style="font-size:11px;font-weight:700">5G</span>
+      <div class="battery-icon"><div class="battery-fill"></div></div>
+    </div>
+  </div>
+
+  <!-- SCREEN -->
+  <div class="screen">
+    <div class="screen-scroll" id="screen-scroll">
+
+      <!-- ======= HOME ======= -->
+      <div class="view active" id="view-home">
+        <!-- Greeting Header -->
+        <div class="greeting-header">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;position:relative;z-index:1">
+            <div style="background:#fff;border-radius:10px;padding:5px 10px;display:inline-flex;align-items:center;box-shadow:0 2px 12px rgba(0,0,0,0.15)"><img src="data:image/jpeg;base64,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AAAQAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAQAAAAAAAAAgAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAhwAABygAgAywAghwQQwQgyAQAAAAwwwQgwgQgywggAQQQQggAgAgDgQADAAAAAAAAAAAAAAAAAAAAAAAAAAABCZoyxBxIQhCiBAATYiATghATCBQTQjwwhiCjSwCiShSxQQDQwCBAQDQjxASzQAAAAAAAAAAAAAAAAAAAAAAAAAAACAABCBDCCBAADACDCADBBCDDBCAAAABACBBADDCBBABACBDBACCBAABADAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/xAAC/9oADAMBAAIAAwAAABDzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzznbzXz7vPbzXDb3zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz7QH2Zr+n/4El1uIjb7zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzyb17SVX69o/k8NQmLqjzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzwoOV4xhez/CbEqhST5v/AK8888888888888888888888888888888888888888888888888888888888888888888qMqA18d0CnpxMeQgQwV7o3888888888888888888888888888888888888888888888888888888888888888888IP07mPp+8sCK88t8GTGeBf888888888888888888888888888888888888888888888888888888888888888888EGaQ2z+888t988pMOui36+888888888888888888888888888888888888888888888888888888888888888888cGFzf8APPPPPPPOqvUA9h6e/PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPOK3KfXPPPPPCHTUsF6puSnm9PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPL9KwvPPPPPOp9Y45fPPPHDSuPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPK62BD2/PPPMZxzsw/PPPP3QpwPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPLvXVoZuvPIjy6GZP6ffP92JPRnvPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPLbx6/Uq3q7p+uFnPR0b/PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP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" alt="CuidarT" style="height:38px;width:auto;object-fit:contain;display:block;"></div>
+            <div style="display:flex;gap:8px">
+              <button class="header-icon-btn" style="background:rgba(255,255,255,0.15);color:#fff" onclick="showToast('Notificaciones')">
+                <i class="bi bi-bell-fill"></i>
+                <div class="notif-badge"></div>
+              </button>
+              <button class="header-icon-btn" style="background:rgba(255,255,255,0.15);color:#fff" onclick="goTo('perfil')">
+                <i class="bi bi-person-circle"></i>
+              </button>
+            </div>
+          </div>
+          <div style="position:relative;z-index:1">
+            <div style="color:rgba(255,255,255,0.8);font-size:14px;font-weight:600"><span class="u-greet">Buenos días</span></div>
+            <div style="color:#fff;font-family:'Nunito',sans-serif;font-size:26px;font-weight:900;margin-top:2px"><span class="u-first">Juan Carlos</span> 👋</div>
+          </div>
+          <!-- Score card overlapping -->
+          <div style="background:#fff;border-radius:20px;padding:14px;margin-top:14px;box-shadow:0 8px 32px rgba(0,0,0,0.15);position:relative;z-index:1">
+            <div style="display:flex;align-items:center;gap:16px">
+              <!-- Score ring -->
+              <div class="score-ring-wrap">
+                <svg width="80" height="80" style="transform:rotate(-90deg)">
+                  <circle cx="40" cy="40" r="32" fill="none" stroke="#e8f0fe" stroke-width="8"/>
+                  <circle cx="40" cy="40" r="32" fill="none" stroke="#10b981" stroke-width="8"
+                    stroke-dasharray="201" stroke-dashoffset="20" stroke-linecap="round"/>
+                </svg>
+                <div class="score-center">
+                  <div style="font-family:'Nunito',sans-serif;font-size:18px;font-weight:900;color:#10b981">92%</div>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:12px;font-weight:700;color:var(--text3)">ESTADO GENERAL</div>
+                <div style="font-family:'Nunito',sans-serif;font-size:20px;font-weight:900;color:var(--text)">Excelente</div>
+                <div class="chip chip-green mt-8"><i class="bi bi-shield-check-fill"></i> Estable</div>
+              </div>
+              <div style="margin-left:auto;text-align:right">
+                <div style="font-size:11px;font-weight:700;color:var(--text3)">Conectado</div>
+                <div style="font-size:11px;font-weight:700;color:var(--green)">● En vivo</div>
+                <div style="font-size:10px;color:var(--text3);margin-top:4px">Última sync<br><strong style="color:var(--text2)">hace 3 min</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ACTION BUTTONS -->
+        <div class="section mt-8">
+          <button id="emergency-home-btn" class="btn-big btn-red" onclick="triggerEmergency()" style="font-size:18px;padding:20px;border-radius:18px;position:relative;overflow:hidden;margin-bottom:10px">
+            <span style="position:absolute;inset:0;border-radius:18px;border:3px solid rgba(255,255,255,0.35);animation:emergRing 2s infinite;pointer-events:none"></span>
+            <i class="bi bi-exclamation-octagon-fill" style="font-size:24px"></i>
+            <div style="text-align:left;line-height:1.2">
+              <div style="font-size:18px;font-family:'Nunito',sans-serif;font-weight:900">Necesito ayuda ahora</div>
+              <div style="font-size:11px;font-weight:600;opacity:0.85">Alerta inmediata a enfermería</div>
+            </div>
+          </button>
+          <button class="btn-big" onclick="goTo('chat')" style="font-size:17px;padding:18px;border-radius:18px;background:var(--blue);color:#fff;box-shadow:0 4px 16px rgba(26,107,196,0.3)">
+            <i class="bi bi-headset" style="font-size:22px"></i>
+            <div style="text-align:left;line-height:1.2">
+              <div style="font-size:17px;font-family:'Nunito',sans-serif;font-weight:900">Llamar enfermería</div>
+              <div style="font-size:11px;font-weight:600;opacity:0.85">Chat · Video · Mensaje</div>
+            </div>
+          </button>
+        </div>
+
+        <!-- Vitals Grid -->
+        <div class="section mt-8">
+          <div class="section-title">
+            <div class="t-title">Mis signos vitales</div>
+            <span class="see-all" onclick="goTo('mediciones')">Ver todo →</span>
+          </div>
+          <div class="row mb-8">
+            <div class="vital-card" style="background:linear-gradient(135deg,#fee2e2,#fecaca)">
+              <div class="vital-label"><i class="bi bi-heart-pulse-fill" style="color:#ef4444"></i> Presión</div>
+              <div class="vital-val" style="color:#991b1b">128<span style="font-size:14px">/82</span></div>
+              <div class="vital-unit">mmHg</div>
+              <div class="vital-trend" style="color:#dc2626"><i class="bi bi-arrow-up"></i> Leve ↑</div>
+              <i class="bi bi-heart-pulse vital-icon" style="color:#ef4444"></i>
+            </div>
+            <div class="vital-card" style="background:linear-gradient(135deg,#d1fae5,#a7f3d0)">
+              <div class="vital-label"><i class="bi bi-droplet-fill" style="color:#059669"></i> Glucemia</div>
+              <div class="vital-val" style="color:#065f46">104</div>
+              <div class="vital-unit">mg/dL</div>
+              <div class="vital-trend" style="color:#059669"><i class="bi bi-arrow-right"></i> Normal</div>
+              <i class="bi bi-droplet vital-icon" style="color:#10b981"></i>
+            </div>
+          </div>
+          <div class="row">
+            <div class="vital-card" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe)">
+              <div class="vital-label"><i class="bi bi-lungs-fill" style="color:#2563eb"></i> Saturación</div>
+              <div class="vital-val" style="color:#1e3a8a">97%</div>
+              <div class="vital-unit">SpO₂</div>
+              <div class="vital-trend" style="color:#2563eb"><i class="bi bi-arrow-right"></i> Normal</div>
+              <i class="bi bi-lungs vital-icon" style="color:#3b82f6"></i>
+            </div>
+            <div class="vital-card" style="background:linear-gradient(135deg,#fef3c7,#fde68a)">
+              <div class="vital-label"><i class="bi bi-activity" style="color:#d97706"></i> Frec. Card.</div>
+              <div class="vital-val" style="color:#92400e">72</div>
+              <div class="vital-unit">bpm</div>
+              <div class="vital-trend" style="color:#d97706"><i class="bi bi-arrow-right"></i> Normal</div>
+              <i class="bi bi-activity vital-icon" style="color:#f59e0b"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Alerts / Reminders -->
+        <div class="section">
+          <div class="section-title">
+            <div class="t-title">Pendientes de hoy</div>
+          </div>
+          <div class="card">
+            <div style="display:flex;align-items:center;gap:12px;padding:14px;border-bottom:1px solid var(--gray-100);cursor:pointer" onclick="goTo('medicacion')" style="padding:11px 14px">
+              <div style="width:40px;height:40px;border-radius:12px;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:20px">💊</div>
+              <div style="flex:1">
+                <div class="t-sub" style="font-size:14px">Enalapril 10mg</div>
+                <div class="t-small">14:00 · En 2 horas</div>
+              </div>
+              <span class="chip chip-yellow">Pendiente</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:14px;border-bottom:1px solid var(--gray-100);cursor:pointer" onclick="goTo('actividades')">
+              <div style="width:40px;height:40px;border-radius:12px;background:#d1fae5;display:flex;align-items:center;justify-content:center;font-size:20px">🚶</div>
+              <div style="flex:1">
+                <div class="t-sub" style="font-size:14px">Caminata 20 min</div>
+                <div class="t-small">Kinesiólogo · Hoy 16:00</div>
+              </div>
+              <span class="chip chip-blue">Hoy</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:14px;cursor:pointer" onclick="goTo('chat')">
+              <div style="width:40px;height:40px;border-radius:12px;background:#ede9fe;display:flex;align-items:center;justify-content:center;font-size:20px">💬</div>
+              <div style="flex:1">
+                <div class="t-sub" style="font-size:14px">Mensaje de Enf. García</div>
+                <div class="t-small">Hace 15 min · Sin leer</div>
+              </div>
+              <div style="width:20px;height:20px;border-radius:50%;background:var(--blue);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center">3</div>
+            </div>
+          </div>
+        </div>
+
+
+
+        <!-- EMERGENCY CONFIRMATION MODAL -->
+        <div id="emerg-modal" style="display:none;position:absolute;inset:0;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:500;backdrop-filter:blur(3px);align-items:center;justify-content:center;padding:24px">
+          <div style="background:#fff;border-radius:24px;padding:28px 20px;text-align:center;animation:fadeUp 0.3s ease;box-shadow:0 20px 60px rgba(0,0,0,0.3);width:100%">
+            <div style="width:72px;height:72px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;font-size:36px;margin:0 auto 16px">🚨</div>
+            <div style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:900;color:#7f1d1d;margin-bottom:8px">¿Necesita ayuda?</div>
+            <div style="font-size:15px;color:#3a5068;line-height:1.5;margin-bottom:24px">Se enviará una alerta urgente a su enfermero y se solicitará una videollamada inmediata.</div>
+            <button class="btn-big btn-red" onclick="confirmEmergency()" style="font-size:17px;padding:18px;margin-bottom:12px">
+              <i class="bi bi-exclamation-octagon-fill"></i> Sí, necesito ayuda
+            </button>
+            <button class="btn-big btn-gray" onclick="cancelEmergency()" style="font-size:16px;padding:14px">
+              <i class="bi bi-check-circle"></i> Estoy bien, cancelar
+            </button>
+          </div>
+        </div>
+
+        <!-- EMERGENCY SENT OVERLAY -->
+        <div id="emerg-sent" style="display:none;position:absolute;inset:0;background:rgba(220,38,38,0.97);z-index:600;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:32px;text-align:center">
+          <div style="width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:48px;animation:emergPulse 1.5s infinite">🚨</div>
+          <div style="font-family:'Nunito',sans-serif;font-size:26px;font-weight:900;color:#fff">¡Alerta enviada!</div>
+          <div style="font-size:15px;color:rgba(255,255,255,0.9);line-height:1.6">Su enfermero fue notificado.<br>Lo contactarán en instantes.</div>
+          <div id="emerg-countdown" style="font-family:'Nunito',sans-serif;font-size:48px;font-weight:900;color:#fff;background:rgba(255,255,255,0.15);width:90px;height:90px;border-radius:50%;display:flex;align-items:center;justify-content:center">5</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.7)">Cerrando automáticamente...</div>
+          <div style="background:rgba(255,255,255,0.15);border-radius:14px;padding:14px 20px;margin-top:8px">
+            <div style="font-size:13px;color:rgba(255,255,255,0.8);font-weight:700">📞 Enf. García en camino</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:2px">Tiempo estimado: &lt; 2 minutos</div>
+          </div>
+          <button onclick="dismissEmergency()" style="background:rgba(255,255,255,0.2);border:2px solid rgba(255,255,255,0.4);color:#fff;padding:12px 28px;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Nunito Sans',sans-serif;margin-top:8px">
+            <i class="bi bi-check2-circle"></i> Entendido
+          </button>
+        </div>
+
+        <!-- Quick actions -->
+        <div class="section">
+          <div class="t-title mb-12">Acciones rápidas</div>
+          <div class="row">
+            <button class="btn-big btn-outline" onclick="goTo('sintomas')" style="font-size:14px;padding:14px">
+              <i class="bi bi-clipboard2-pulse"></i> Síntomas
+            </button>
+            <button class="btn-big btn-gray" onclick="goTo('video')" style="font-size:14px;padding:14px">
+              <i class="bi bi-camera-video-fill"></i> Video
+            </button>
+          </div>
+        </div>
+
+        <!-- My team preview -->
+        <div class="section">
+          <div class="section-title">
+            <div class="t-title">Mi equipo</div>
+            <span class="see-all" onclick="goTo('equipo')">Ver todos →</span>
+          </div>
+          <div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:4px">
+            
+            <div style="flex-shrink:0;width:90px;text-align:center;cursor:pointer" onclick="goTo('equipo')">
+              <div style="width:60px;height:60px;border-radius:20px;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 6px">👩‍⚕️</div>
+              <div style="font-size:11px;font-weight:700;color:var(--text2)">Enf. García</div>
+              <div style="font-size:10px;color:var(--text3)">Enfermera</div>
+            </div>
+            <div style="flex-shrink:0;width:90px;text-align:center;cursor:pointer" onclick="goTo('equipo')">
+              <div style="width:60px;height:60px;border-radius:20px;background:#d1fae5;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 6px">👨‍⚕️</div>
+              <div style="font-size:11px;font-weight:700;color:var(--text2)">Dr. Morales</div>
+              <div style="font-size:10px;color:var(--text3)">Médico</div>
+            </div>
+            <div style="flex-shrink:0;width:90px;text-align:center;cursor:pointer" onclick="goTo('equipo')">
+              <div style="width:60px;height:60px;border-radius:20px;background:#ede9fe;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 6px">🧘</div>
+              <div style="font-size:11px;font-weight:700;color:var(--text2)">Lic. Ruiz</div>
+              <div style="font-size:10px;color:var(--text3)">Psicóloga</div>
+            </div>
+            <div style="flex-shrink:0;width:90px;text-align:center;cursor:pointer" onclick="goTo('equipo')">
+              <div style="width:60px;height:60px;border-radius:20px;background:#fef3c7;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 6px">🥗</div>
+              <div style="font-size:11px;font-weight:700;color:var(--text2)">Lic. Paz</div>
+              <div style="font-size:10px;color:var(--text3)">Nutricionista</div>
+            </div>
+            <div style="flex-shrink:0;width:90px;text-align:center;cursor:pointer" onclick="goTo('equipo')">
+              <div style="width:60px;height:60px;border-radius:20px;background:#ffedd5;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 6px">🏃</div>
+              <div style="font-size:11px;font-weight:700;color:var(--text2)">Lic. Torres</div>
+              <div style="font-size:10px;color:var(--text3)">Kinesiólogo</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="height:8px"></div>
+      </div><!-- /home -->
+
+      <!-- ======= MEDICIONES ======= -->
+      <div class="view" id="view-mediciones">
+        <div class="app-header bordered">
+          <button class="header-icon-btn" onclick="goTo('home')" style="background:var(--blue-light);color:var(--blue)"><i class="bi bi-arrow-left"></i></button>
+          <div class="t-title">Mis mediciones</div>
+          <button class="header-icon-btn" onclick="showToast('Exportando historial...')"><i class="bi bi-download"></i></button>
+        </div>
+
+        <!-- Filter pills -->
+        <div style="padding:12px 16px">
+          <div class="pill-row" id="med-pills">
+            <button class="pill active" onclick="setMedPill(this,'bp')">Presión</button>
+            <button class="pill" onclick="setMedPill(this,'glucose')">Glucemia</button>
+            <button class="pill" onclick="setMedPill(this,'spo2')">Saturación</button>
+            <button class="pill" onclick="setMedPill(this,'hr')">Frec. Card.</button>
+            <button class="pill" onclick="setMedPill(this,'temp')">Temperatura</button>
+          </div>
+        </div>
+
+        <!-- Current value card -->
+        <div class="section">
+          <div class="card card-p" id="med-current-card">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div>
+                <div class="t-label" id="med-title">PRESIÓN ARTERIAL</div>
+                <div style="font-family:'Nunito',sans-serif;font-size:42px;font-weight:900;color:#991b1b;margin-top:4px" id="med-value">128<span style="font-size:20px">/82</span></div>
+                <div class="t-small" id="med-unit">mmHg · Hace 1h 20min</div>
+              </div>
+              <div style="text-align:center">
+                <div style="font-size:48px" id="med-emoji">❤️</div>
+                <div id="med-chip" class="chip chip-yellow">Atención</div>
+              </div>
+            </div>
+            <div class="chart-wrap mt-12">
+              <canvas id="chart-vital-detail"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- History -->
+        <div class="section">
+          <div class="t-title mb-12">Últimas mediciones</div>
+          <div class="card" id="med-history-list">
+            
+            <div style="display:flex;align-items:center;gap:12px;padding:14px;border-bottom:1px solid var(--gray-100)">
+              <div style="width:36px;height:36px;border-radius:10px;background:#fee2e2;display:flex;align-items:center;justify-content:center;font-size:16px">❤️</div>
+              <div style="flex:1">
+                <div class="t-sub" style="font-size:14px">128/82 mmHg</div>
+                <div class="t-small">Hoy 12:30</div>
+              </div>
+              <span class="chip chip-yellow">↑ Atención</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:14px;border-bottom:1px solid var(--gray-100)">
+              <div style="width:36px;height:36px;border-radius:10px;background:#fee2e2;display:flex;align-items:center;justify-content:center;font-size:16px">❤️</div>
+              <div style="flex:1">
+                <div class="t-sub" style="font-size:14px">124/80 mmHg</div>
+                <div class="t-small">Hoy 08:15</div>
+              </div>
+              <span class="chip chip-green">Normal</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:14px;border-bottom:1px solid var(--gray-100)">
+              <div style="width:36px;height:36px;border-radius:10px;background:#fee2e2;display:flex;align-items:center;justify-content:center;font-size:16px">❤️</div>
+              <div style="flex:1">
+                <div class="t-sub" style="font-size:14px">126/82 mmHg</div>
+                <div class="t-small">Ayer 20:00</div>
+              </div>
+              <span class="chip chip-green">Normal</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:14px;border-bottom:1px solid var(--gray-100)">
+              <div style="width:36px;height:36px;border-radius:10px;background:#fee2e2;display:flex;align-items:center;justify-content:center;font-size:16px">❤️</div>
+              <div style="flex:1">
+                <div class="t-sub" style="font-size:14px">131/85 mmHg</div>
+                <div class="t-small">Ayer 12:00</div>
+              </div>
+              <span class="chip chip-yellow">↑ Atención</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:14px;border-bottom:1px solid var(--gray-100)">
+              <div style="width:36px;height:36px;border-radius:10px;background:#fee2e2;display:flex;align-items:center;justify-content:center;font-size:16px">❤️</div>
+              <div style="flex:1">
+                <div class="t-sub" style="font-size:14px">122/78 mmHg</div>
+                <div class="t-small">Ayer 08:00</div>
+              </div>
+              <span class="chip chip-green">Normal</span>
+            </div>
+          </div>
+        </div>
+        <div style="height:20px"></div>
+      </div><!-- /mediciones -->
+
+      <!-- ======= MEDICACIÓN ======= -->
+      <div class="view" id="view-medicacion">
+        <div class="app-header bordered">
+          <button class="header-icon-btn" onclick="goTo('home')" style="background:var(--blue-light);color:var(--blue)"><i class="bi bi-arrow-left"></i></button>
+          <div class="t-title">Medicación</div>
+          <div class="chip chip-green"><i class="bi bi-check-circle-fill"></i> 4/6 hoy</div>
+        </div>
+
+        <!-- Progress -->
+        <div class="section mt-16">
+          <div class="card card-p" style="background:linear-gradient(135deg,#dbeafe,#ede9fe)">
+            <div class="flex-between mb-12">
+              <div class="t-sub">Cumplimiento hoy</div>
+              <div style="font-family:'Nunito',sans-serif;font-size:20px;font-weight:900;color:var(--blue)">67%</div>
+            </div>
+            <div style="height:8px;background:rgba(255,255,255,0.5);border-radius:4px;overflow:hidden">
+              <div style="width:67%;height:100%;background:var(--blue);border-radius:4px;transition:width 0.6s"></div>
+            </div>
+            <div style="font-size:12px;font-weight:600;color:var(--text2);margin-top:8px">Faltan 2 medicamentos más hoy</div>
+          </div>
+        </div>
+
+        <!-- Med list -->
+        <div class="section">
+          <div class="t-title mb-12">Plan de hoy</div>
+          <div class="card">
+            
+            <div class="med-item">
+              <div class="med-icon" style="background:#dbeafe">💊</div>
+              <div class="med-body">
+                <div class="t-sub" style="font-size:15px">Enalapril 10mg</div>
+                <div class="t-small">1 comp. · cada 12h</div>
+                <div style="font-size:12px;font-weight:600;color:var(--text3);margin-top:2px">Próxima: 14:00</div>
+                <div class="med-actions">
+                  <button class="btn-sm" style="background:#d1fae5;color:#065f46;font-size:12px" onclick="showToast('Enalapril registrado')">✓ Tomado</button>
+                  <button class="btn-sm" style="background:var(--gray-100);color:var(--text2);font-size:12px" onclick="showToast('Pospuesto 30 minutos')">⏰ Posponer</button>
+                </div>
+              </div>
+              <span class="chip chip-green" style="flex-shrink:0">✅ Tomado</span>
+            </div>
+            <div class="med-item">
+              <div class="med-icon" style="background:#d1fae5">💊</div>
+              <div class="med-body">
+                <div class="t-sub" style="font-size:15px">Metformina 850mg</div>
+                <div class="t-small">1 comp. · con desayuno</div>
+                <div style="font-size:12px;font-weight:600;color:var(--text3);margin-top:2px">Próxima: ✓ Tomado</div>
+                <div class="med-actions">
+                  <button class="btn-sm" style="background:#d1fae5;color:#065f46;font-size:12px" onclick="showToast('Metformina registrado')">✓ Tomado</button>
+                  <button class="btn-sm" style="background:var(--gray-100);color:var(--text2);font-size:12px" onclick="showToast('Pospuesto 30 minutos')">⏰ Posponer</button>
+                </div>
+              </div>
+              <span class="chip chip-green" style="flex-shrink:0">✅ Tomado</span>
+            </div>
+            <div class="med-item">
+              <div class="med-icon" style="background:#ede9fe">💊</div>
+              <div class="med-body">
+                <div class="t-sub" style="font-size:15px">Amlodipina 5mg</div>
+                <div class="t-small">1 comp. · cada 24h</div>
+                <div style="font-size:12px;font-weight:600;color:var(--text3);margin-top:2px">Próxima: 14:00</div>
+                <div class="med-actions">
+                  <button class="btn-sm" style="background:#dbeafe;color:#1e3a8a;font-size:12px" onclick="showToast('Recordatorio activado')">Confirmar</button>
+                  <button class="btn-sm" style="background:var(--gray-100);color:var(--text2);font-size:12px" onclick="showToast('Pospuesto 30 minutos')">⏰ Posponer</button>
+                </div>
+              </div>
+              <span class="chip chip-yellow" style="flex-shrink:0">⏳ Pendiente</span>
+            </div>
+            <div class="med-item">
+              <div class="med-icon" style="background:#fef3c7">💊</div>
+              <div class="med-body">
+                <div class="t-sub" style="font-size:15px">Furosemida 40mg</div>
+                <div class="t-small">1 comp. · mañana</div>
+                <div style="font-size:12px;font-weight:600;color:var(--text3);margin-top:2px">Próxima: 08:00</div>
+                <div class="med-actions">
+                  <button class="btn-sm" style="background:#dbeafe;color:#1e3a8a;font-size:12px" onclick="showToast('Recordatorio activado')">Confirmar</button>
+                  <button class="btn-sm" style="background:var(--gray-100);color:var(--text2);font-size:12px" onclick="showToast('Pospuesto 30 minutos')">⏰ Posponer</button>
+                </div>
+              </div>
+              <span class="chip chip-yellow" style="flex-shrink:0">⏳ Pendiente</span>
+            </div>
+            <div class="med-item">
+              <div class="med-icon" style="background:#ffedd5">💊</div>
+              <div class="med-body">
+                <div class="t-sub" style="font-size:15px">Bisoprolol 5mg</div>
+                <div class="t-small">½ comp. · cada 24h</div>
+                <div style="font-size:12px;font-weight:600;color:var(--text3);margin-top:2px">Próxima: ✓ Tomado</div>
+                <div class="med-actions">
+                  <button class="btn-sm" style="background:#d1fae5;color:#065f46;font-size:12px" onclick="showToast('Bisoprolol registrado')">✓ Tomado</button>
+                  <button class="btn-sm" style="background:var(--gray-100);color:var(--text2);font-size:12px" onclick="showToast('Pospuesto 30 minutos')">⏰ Posponer</button>
+                </div>
+              </div>
+              <span class="chip chip-green" style="flex-shrink:0">✅ Tomado</span>
+            </div>
+            <div class="med-item">
+              <div class="med-icon" style="background:#fee2e2">💊</div>
+              <div class="med-body">
+                <div class="t-sub" style="font-size:15px">Atorvastatina 40mg</div>
+                <div class="t-small">1 comp. · noche</div>
+                <div style="font-size:12px;font-weight:600;color:var(--text3);margin-top:2px">Próxima: 22:00</div>
+                <div class="med-actions">
+                  <button class="btn-sm" style="background:#fef3c7;color:#92400e;font-size:12px" onclick="showToast('Recordatorio 22:00')">Recordar</button>
+                  <button class="btn-sm" style="background:var(--gray-100);color:var(--text2);font-size:12px" onclick="showToast('Pospuesto 30 minutos')">⏰ Posponer</button>
+                </div>
+              </div>
+              <span class="chip chip-blue" style="flex-shrink:0">🌙 Noche</span>
+            </div>
+          </div>
+        </div>
+        <div style="height:20px"></div>
+      </div><!-- /medicacion -->
+
+      <!-- ======= CHAT ======= -->
+      <div class="view" id="view-chat">
+        <div class="app-header bordered">
+          <button class="header-icon-btn" onclick="goTo('home')" style="background:var(--blue-light);color:var(--blue)"><i class="bi bi-arrow-left"></i></button>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:36px;height:36px;border-radius:12px;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:20px">👩‍⚕️</div>
+            <div>
+              <div class="t-sub" style="font-size:14px">Enf. María García</div>
+              <div style="font-size:11px;color:var(--green);font-weight:700">● En línea</div>
+            </div>
+          </div>
+          <button class="header-icon-btn" onclick="goTo('video')"><i class="bi bi-camera-video-fill"></i></button>
+        </div>
+
+        <!-- Messages -->
+        <div id="app-chat-messages" style="padding:16px;display:flex;flex-direction:column;gap:12px;min-height:400px">
+          
+          <div style="display:flex;flex-direction:column;align-items:flex-start">
+            <div class="bubble bubble-in">Buenos días Juan Carlos 😊 ¿Cómo amaneció hoy?</div>
+            <div style="font-size:10px;font-weight:600;color:var(--text3);margin-top:3px;">Enf. García · 8:15</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end">
+            <div class="bubble bubble-out">Bien gracias, aunque me sentí un poquito mareado al levantarme</div>
+            <div style="font-size:10px;font-weight:600;color:var(--text3);margin-top:3px;text-align:right">Juan · 8:22</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-start">
+            <div class="bubble bubble-in">Entiendo. ¿Tomó la presión esta mañana?</div>
+            <div style="font-size:10px;font-weight:600;color:var(--text3);margin-top:3px;">8:23</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end">
+            <div class="bubble bubble-out">Sí, 128/82. La registré con el tensiómetro</div>
+            <div style="font-size:10px;font-weight:600;color:var(--text3);margin-top:3px;text-align:right">8:24</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-start">
+            <div class="bubble bubble-in">Bien. Está un poco elevada. Le recomiendo descansar y evitar el café por ahora. Voy a avisarle al Dr. Morales.</div>
+            <div style="font-size:10px;font-weight:600;color:var(--text3);margin-top:3px;">8:25</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end">
+            <div class="bubble bubble-out">Perfecto, muchas gracias enfermera 🙏</div>
+            <div style="font-size:10px;font-weight:600;color:var(--text3);margin-top:3px;text-align:right">8:30</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-start">
+            <div class="bubble bubble-in">¿Tomó el Enalapril esta mañana?</div>
+            <div style="font-size:10px;font-weight:600;color:var(--text3);margin-top:3px;">8:31</div>
+          </div>
+          <div style="text-align:center;font-size:11px;color:var(--text3);font-weight:600">Hoy · 8:31 AM</div>
+        </div>
+
+        <!-- Input -->
+        <div style="position:sticky;bottom:0;background:#fff;padding:12px 16px;border-top:1px solid var(--gray-100);display:flex;gap:8px;align-items:flex-end">
+          <button class="header-icon-btn" onclick="showToast('Adjuntar archivo')"><i class="bi bi-paperclip"></i></button>
+          <button class="header-icon-btn" onclick="showToast('Enviar foto')"><i class="bi bi-camera"></i></button>
+          <textarea class="input-field" style="flex:1;resize:none;height:44px;padding:10px 14px" placeholder="Escribir mensaje..." id="chat-input" rows="1"></textarea>
+          <button class="header-icon-btn" style="background:var(--blue);color:#fff" onclick="sendMsg()"><i class="bi bi-send-fill"></i></button>
+        </div>
+      </div><!-- /chat -->
+
+      <!-- ======= VIDEO ======= -->
+      <div class="view" id="view-video">
+        <div class="app-header bordered">
+          <button class="header-icon-btn" onclick="goTo('home')" style="background:var(--blue-light);color:var(--blue)"><i class="bi bi-arrow-left"></i></button>
+          <div class="t-title">Videollamada</div>
+          <span class="chip chip-red"><i class="bi bi-circle-fill" style="font-size:8px"></i> EN VIVO</span>
+        </div>
+
+        <div class="section mt-16">
+          <div class="video-main-area">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:10px;color:rgba(255,255,255,0.6)">
+              <div style="width:70px;height:70px;border-radius:50%;background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:32px">👩‍⚕️</div>
+              <div style="font-size:14px;font-weight:700">Enf. María García</div>
+              <div style="font-size:12px">Conectando...</div>
+            </div>
+            <div class="video-self"><i class="bi bi-person-fill"></i></div>
+            <div style="position:absolute;top:10px;left:10px">
+              <span class="chip chip-red"><div class="sdot sdot-red" style="margin-right:2px"></div> REC 02:34</span>
+            </div>
+          </div>
+
+          <!-- Controls -->
+          <div style="display:flex;justify-content:center;gap:16px;margin-top:20px">
+            <button class="vc-ctrl" style="background:var(--gray-100);color:var(--text)" onclick="showToast('Micrófono silenciado')"><i class="bi bi-mic-fill"></i></button>
+            <button class="vc-ctrl" style="background:var(--gray-100);color:var(--text)" onclick="showToast('Cámara pausada')"><i class="bi bi-camera-video-fill"></i></button>
+            <button class="vc-ctrl" style="background:var(--gray-100);color:var(--text)" onclick="showToast('Altavoz activado')"><i class="bi bi-volume-up-fill"></i></button>
+            <button class="vc-ctrl" style="background:var(--red);color:#fff;width:60px;height:60px" onclick="goTo('home');showToast('Llamada finalizada')"><i class="bi bi-telephone-x-fill"></i></button>
+          </div>
+          <!-- Emergency in call -->
+          <button class="btn-big btn-red mt-16" onclick="showToast('🚨 Alerta de emergencia enviada')">
+            <i class="bi bi-exclamation-octagon-fill"></i> Necesito ayuda ahora
+          </button>
+        </div>
+
+        <!-- In-call chat -->
+        <div class="section mt-16">
+          <div class="t-title mb-12">Chat de consulta</div>
+          <div class="card card-p" style="background:var(--gray-50)">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="align-self:flex-start"><div class="bubble bubble-in" style="font-size:13px">¿Cómo se siente ahora Juan?</div></div>
+              <div style="align-self:flex-end"><div class="bubble bubble-out" style="font-size:13px">Mejor, el mareo pasó</div></div>
+            </div>
+          </div>
+        </div>
+        <div style="height:20px"></div>
+      </div><!-- /video -->
+
+      <!-- ======= SÍNTOMAS ======= -->
+      <div class="view" id="view-sintomas">
+        <div class="app-header bordered">
+          <button class="header-icon-btn" onclick="goTo('home')" style="background:var(--blue-light);color:var(--blue)"><i class="bi bi-arrow-left"></i></button>
+          <div class="t-title">Registrar síntomas</div>
+          <span></span>
+        </div>
+
+        <div class="section mt-16">
+          <div class="card card-p" style="background:var(--blue-light);border-left:4px solid var(--blue)">
+            <div style="font-size:14px;font-weight:700;color:var(--blue)"><i class="bi bi-info-circle-fill"></i> Esta información se envía automáticamente a su enfermero</div>
+          </div>
+        </div>
+
+        <!-- Symptoms -->
+        <div class="section">
+          <div class="t-title mb-12">¿Cómo se siente hoy?</div>
+          
+          <div style="margin-bottom:20px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+              <span style="font-size:20px">😣</span>
+              <div class="t-sub">Dolor</div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <div class="scale-btn" style="background:#d1fae5;color:#065f46" onclick="selectScale(this)">0</div><div class="scale-btn" style="background:#d1fae5;color:#065f46" onclick="selectScale(this)">1</div><div class="scale-btn" style="background:#fef3c7;color:#92400e" onclick="selectScale(this)">2</div><div class="scale-btn" style="background:#fed7aa;color:#9a3412" onclick="selectScale(this)">3</div><div class="scale-btn" style="background:#fee2e2;color:#991b1b" onclick="selectScale(this)">4</div><div class="scale-btn" style="background:#fecaca;color:#7f1d1d" onclick="selectScale(this)">5</div>
+            </div>
+          </div>
+          <div style="margin-bottom:20px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+              <span style="font-size:20px">😵</span>
+              <div class="t-sub">Mareos</div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <div class="scale-btn" style="background:#d1fae5;color:#065f46" onclick="selectScale(this)">0</div><div class="scale-btn" style="background:#d1fae5;color:#065f46" onclick="selectScale(this)">1</div><div class="scale-btn" style="background:#fef3c7;color:#92400e" onclick="selectScale(this)">2</div><div class="scale-btn" style="background:#fed7aa;color:#9a3412" onclick="selectScale(this)">3</div><div class="scale-btn" style="background:#fee2e2;color:#991b1b" onclick="selectScale(this)">4</div><div class="scale-btn" style="background:#fecaca;color:#7f1d1d" onclick="selectScale(this)">5</div>
+            </div>
+          </div>
+          <div style="margin-bottom:20px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+              <span style="font-size:20px">🌡️</span>
+              <div class="t-sub">Fiebre</div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <div class="scale-btn" style="background:#d1fae5;color:#065f46" onclick="selectScale(this)">0</div><div class="scale-btn" style="background:#d1fae5;color:#065f46" onclick="selectScale(this)">1</div><div class="scale-btn" style="background:#fef3c7;color:#92400e" onclick="selectScale(this)">2</div><div class="scale-btn" style="background:#fed7aa;color:#9a3412" onclick="selectScale(this)">3</div><div class="scale-btn" style="background:#fee2e2;color:#991b1b" onclick="selectScale(this)">4</div><div class="scale-btn" style="background:#fecaca;color:#7f1d1d" onclick="selectScale(this)">5</div>
+            </div>
+          </div>
+          <div style="margin-bottom:20px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+              <span style="font-size:20px">😮‍💨</span>
+              <div class="t-sub">Falta de aire</div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <div class="scale-btn" style="background:#d1fae5;color:#065f46" onclick="selectScale(this)">0</div><div class="scale-btn" style="background:#d1fae5;color:#065f46" onclick="selectScale(this)">1</div><div class="scale-btn" style="background:#fef3c7;color:#92400e" onclick="selectScale(this)">2</div><div class="scale-btn" style="background:#fed7aa;color:#9a3412" onclick="selectScale(this)">3</div><div class="scale-btn" style="background:#fee2e2;color:#991b1b" onclick="selectScale(this)">4</div><div class="scale-btn" style="background:#fecaca;color:#7f1d1d" onclick="selectScale(this)">5</div>
+            </div>
+          </div>
+          <div style="margin-bottom:20px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+              <span style="font-size:20px">😴</span>
+              <div class="t-sub">Fatiga</div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <div class="scale-btn" style="background:#d1fae5;color:#065f46" onclick="selectScale(this)">0</div><div class="scale-btn" style="background:#d1fae5;color:#065f46" onclick="selectScale(this)">1</div><div class="scale-btn" style="background:#fef3c7;color:#92400e" onclick="selectScale(this)">2</div><div class="scale-btn" style="background:#fed7aa;color:#9a3412" onclick="selectScale(this)">3</div><div class="scale-btn" style="background:#fee2e2;color:#991b1b" onclick="selectScale(this)">4</div><div class="scale-btn" style="background:#fecaca;color:#7f1d1d" onclick="selectScale(this)">5</div>
+            </div>
+          </div>
+          <div style="margin-bottom:20px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+              <span style="font-size:20px">🤢</span>
+              <div class="t-sub">Náuseas</div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <div class="scale-btn" style="background:#d1fae5;color:#065f46" onclick="selectScale(this)">0</div><div class="scale-btn" style="background:#d1fae5;color:#065f46" onclick="selectScale(this)">1</div><div class="scale-btn" style="background:#fef3c7;color:#92400e" onclick="selectScale(this)">2</div><div class="scale-btn" style="background:#fed7aa;color:#9a3412" onclick="selectScale(this)">3</div><div class="scale-btn" style="background:#fee2e2;color:#991b1b" onclick="selectScale(this)">4</div><div class="scale-btn" style="background:#fecaca;color:#7f1d1d" onclick="selectScale(this)">5</div>
+            </div>
+          </div>
+          <div style="margin-bottom:20px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+              <span style="font-size:20px">😰</span>
+              <div class="t-sub">Ansiedad</div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <div class="scale-btn" style="background:#d1fae5;color:#065f46" onclick="selectScale(this)">0</div><div class="scale-btn" style="background:#d1fae5;color:#065f46" onclick="selectScale(this)">1</div><div class="scale-btn" style="background:#fef3c7;color:#92400e" onclick="selectScale(this)">2</div><div class="scale-btn" style="background:#fed7aa;color:#9a3412" onclick="selectScale(this)">3</div><div class="scale-btn" style="background:#fee2e2;color:#991b1b" onclick="selectScale(this)">4</div><div class="scale-btn" style="background:#fecaca;color:#7f1d1d" onclick="selectScale(this)">5</div>
+            </div>
+          </div>
+
+          <!-- Observations -->
+          <div class="t-sub mb-8">Observaciones adicionales</div>
+          <textarea class="input-field" rows="3" placeholder="Cuéntenos cómo se siente... (opcional)"></textarea>
+
+          <button class="btn-big btn-primary mt-16" onclick="showToast('✅ Síntomas enviados a enfermería')">
+            <i class="bi bi-send-fill"></i> Enviar a enfermería
+          </button>
+        </div>
+        <div style="height:20px"></div>
+      </div><!-- /sintomas -->
+
+      <!-- ======= ACTIVIDADES ======= -->
+      <div class="view" id="view-actividades">
+        <div class="app-header bordered">
+          <button class="header-icon-btn" onclick="goTo('home')" style="background:var(--blue-light);color:var(--blue)"><i class="bi bi-arrow-left"></i></button>
+          <div class="t-title">Mis actividades</div>
+          <span></span>
+        </div>
+
+        <div class="section mt-16">
+          <div class="row mb-12" style="gap:8px">
+            <div class="card card-p" style="text-align:center;background:var(--green-light)">
+              <div style="font-family:'Nunito',sans-serif;font-size:24px;font-weight:900;color:var(--green)">3</div>
+              <div style="font-size:11px;font-weight:700;color:#065f46">Completadas</div>
+            </div>
+            <div class="card card-p" style="text-align:center;background:var(--yellow-light)">
+              <div style="font-family:'Nunito',sans-serif;font-size:24px;font-weight:900;color:var(--yellow)">4</div>
+              <div style="font-size:11px;font-weight:700;color:#92400e">Pendientes</div>
+            </div>
+            <div class="card card-p" style="text-align:center;background:var(--blue-light)">
+              <div style="font-family:'Nunito',sans-serif;font-size:24px;font-weight:900;color:var(--blue)">7</div>
+              <div style="font-size:11px;font-weight:700;color:#1e3a8a">Total hoy</div>
+            </div>
+          </div>
+
+          
+          <div class="card card-p mb-8" style="border-left:4px solid #3b82f6">
+            <div style="display:flex;align-items:flex-start;gap:12px">
+              <div style="font-size:28px">🚶</div>
+              <div style="flex:1">
+                <div class="flex-between">
+                  <div class="t-sub" style="font-size:15px">Caminata 20 minutos</div>
+                  <span class="chip chip-blue">Pendiente</span>
+                </div>
+                <div class="t-small">Kinesiólogo · 16:00 · 20 min</div>
+                <div class="t-body" style="font-size:13px;margin-top:6px">Caminar a paso moderado, evitar zonas con escaleras.</div>
+                <button class="btn-sm mt-8" style="background:#dbeafe;color:#1e3a8a" onclick="showToast('Actividad iniciada')">📍 Iniciar</button>
+              </div>
+            </div>
+          </div>
+          <div class="card card-p mb-8" style="border-left:4px solid #10b981">
+            <div style="display:flex;align-items:flex-start;gap:12px">
+              <div style="font-size:28px">🧘</div>
+              <div style="flex:1">
+                <div class="flex-between">
+                  <div class="t-sub" style="font-size:15px">Relajación guiada</div>
+                  <span class="chip chip-green">✅ Hecha</span>
+                </div>
+                <div class="t-small">Psicóloga · 10:00 · 15 min</div>
+                <div class="t-body" style="font-size:13px;margin-top:6px">Ejercicio de respiración 4-7-8 para reducir ansiedad.</div>
+                <button class="btn-sm mt-8" style="background:#d1fae5;color:#065f46" onclick="showToast('Actividad completada')">✓ Completada</button>
+              </div>
+            </div>
+          </div>
+          <div class="card card-p mb-8" style="border-left:4px solid #10b981">
+            <div style="display:flex;align-items:flex-start;gap:12px">
+              <div style="font-size:28px">🥗</div>
+              <div style="flex:1">
+                <div class="flex-between">
+                  <div class="t-sub" style="font-size:15px">Plan nutricional</div>
+                  <span class="chip chip-green">✅ Hecha</span>
+                </div>
+                <div class="t-small">Nutricionista · Todo el día</div>
+                <div class="t-body" style="font-size:13px;margin-top:6px">Seguir dieta mediterránea. Evitar sal y azúcar añadida.</div>
+                <button class="btn-sm mt-8" style="background:#d1fae5;color:#065f46" onclick="showToast('Registro enviado')">✓ Registrar comida</button>
+              </div>
+            </div>
+          </div>
+          <div class="card card-p mb-8" style="border-left:4px solid #10b981">
+            <div style="display:flex;align-items:flex-start;gap:12px">
+              <div style="font-size:28px">💪</div>
+              <div style="flex:1">
+                <div class="flex-between">
+                  <div class="t-sub" style="font-size:15px">Ejercicios de movilidad</div>
+                  <span class="chip chip-green">✅ Hecha</span>
+                </div>
+                <div class="t-small">Kinesiólogo · 09:30 · 10 min</div>
+                <div class="t-body" style="font-size:13px;margin-top:6px">Movimientos suaves de cuello, hombros y muñecas.</div>
+                <button class="btn-sm mt-8" style="background:#d1fae5;color:#065f46" onclick="showToast('Completado')">✓ Completada</button>
+              </div>
+            </div>
+          </div>
+          <div class="card card-p mb-8" style="border-left:4px solid #f59e0b">
+            <div style="display:flex;align-items:flex-start;gap:12px">
+              <div style="font-size:28px">📖</div>
+              <div style="flex:1">
+                <div class="flex-between">
+                  <div class="t-sub" style="font-size:15px">Tarea cognitiva</div>
+                  <span class="chip chip-yellow">Pendiente</span>
+                </div>
+                <div class="t-small">Psicóloga · Tarde</div>
+                <div class="t-body" style="font-size:13px;margin-top:6px">Leer 15 minutos y describir lo leído.</div>
+                <button class="btn-sm mt-8" style="background:#dbeafe;color:#1e3a8a" onclick="showToast('Actividad iniciada')">Iniciar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="height:20px"></div>
+      </div><!-- /actividades -->
+
+      <!-- ======= EQUIPO ======= -->
+      <div class="view" id="view-equipo">
+        <div class="app-header bordered">
+          <button class="header-icon-btn" onclick="goTo('home')" style="background:var(--blue-light);color:var(--blue)"><i class="bi bi-arrow-left"></i></button>
+          <div class="t-title">Mi equipo de salud</div>
+          <span></span>
+        </div>
+
+        <div class="section mt-16">
+          
+          <div class="team-card">
+            <div class="team-avatar" style="background:#dbeafe">👩‍⚕️</div>
+            <div style="flex:1">
+              <div style="font-family:'Nunito',sans-serif;font-size:16px;font-weight:800;color:var(--text)">Enf. María García</div>
+              <div class="t-small">Enfermera · Central de Monitoreo</div>
+              <div style="display:flex;align-items:center;gap:4px;margin-top:4px">
+                <div class="online-dot" style="background:#10b981"></div>
+                <span style="font-size:11px;font-weight:700;color:#10b981">En línea</span>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <button class="btn-sm" style="background:var(--blue);color:#fff" onclick="goTo('chat');showToast('Contactando a Enf. María García')"
+              ><i class="bi bi-chat-fill"></i> Mensaje</button>
+              <button class="btn-sm" style="background:var(--gray-100);color:var(--text2)" onclick="goTo('video')"
+              ><i class="bi bi-camera-video"></i> Video</button>
+            </div>
+          </div>
+          <div class="team-card">
+            <div class="team-avatar" style="background:#d1fae5">👨‍⚕️</div>
+            <div style="flex:1">
+              <div style="font-family:'Nunito',sans-serif;font-size:16px;font-weight:800;color:var(--text)">Dr. Carlos Morales</div>
+              <div class="t-small">Médico Internista · Jefe de Programa</div>
+              <div style="display:flex;align-items:center;gap:4px;margin-top:4px">
+                <div class="online-dot" style="background:#10b981"></div>
+                <span style="font-size:11px;font-weight:700;color:#10b981">Disponible</span>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <button class="btn-sm" style="background:var(--blue);color:#fff" onclick="goTo('chat');showToast('Contactando a Dr. Carlos Morales')"
+              ><i class="bi bi-chat-fill"></i> Mensaje</button>
+              <button class="btn-sm" style="background:var(--gray-100);color:var(--text2)" onclick="goTo('video')"
+              ><i class="bi bi-camera-video"></i> Video</button>
+            </div>
+          </div>
+          <div class="team-card">
+            <div class="team-avatar" style="background:#ede9fe">🧘</div>
+            <div style="flex:1">
+              <div style="font-family:'Nunito',sans-serif;font-size:16px;font-weight:800;color:var(--text)">Lic. Ana Ruiz</div>
+              <div class="t-small">Psicóloga Clínica</div>
+              <div style="display:flex;align-items:center;gap:4px;margin-top:4px">
+                <div class="online-dot" style="background:#94a3b8"></div>
+                <span style="font-size:11px;font-weight:700;color:#94a3b8">Fuera de guardia</span>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <button class="btn-sm" style="background:var(--blue);color:#fff" onclick="goTo('chat');showToast('Contactando a Lic. Ana Ruiz')"
+              ><i class="bi bi-chat-fill"></i> Mensaje</button>
+              <button class="btn-sm" style="background:var(--gray-100);color:var(--text2)" onclick="goTo('video')"
+              ><i class="bi bi-camera-video"></i> Video</button>
+            </div>
+          </div>
+          <div class="team-card">
+            <div class="team-avatar" style="background:#fef3c7">🥗</div>
+            <div style="flex:1">
+              <div style="font-family:'Nunito',sans-serif;font-size:16px;font-weight:800;color:var(--text)">Lic. Valeria Paz</div>
+              <div class="t-small">Nutricionista</div>
+              <div style="display:flex;align-items:center;gap:4px;margin-top:4px">
+                <div class="online-dot" style="background:#10b981"></div>
+                <span style="font-size:11px;font-weight:700;color:#10b981">Disponible</span>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <button class="btn-sm" style="background:var(--blue);color:#fff" onclick="goTo('chat');showToast('Contactando a Lic. Valeria Paz')"
+              ><i class="bi bi-chat-fill"></i> Mensaje</button>
+              <button class="btn-sm" style="background:var(--gray-100);color:var(--text2)" onclick="goTo('video')"
+              ><i class="bi bi-camera-video"></i> Video</button>
+            </div>
+          </div>
+          <div class="team-card">
+            <div class="team-avatar" style="background:#ffedd5">🏃</div>
+            <div style="flex:1">
+              <div style="font-family:'Nunito',sans-serif;font-size:16px;font-weight:800;color:var(--text)">Lic. Diego Torres</div>
+              <div class="t-small">Kinesiólogo</div>
+              <div style="display:flex;align-items:center;gap:4px;margin-top:4px">
+                <div class="online-dot" style="background:#f59e0b"></div>
+                <span style="font-size:11px;font-weight:700;color:#f59e0b">En consulta</span>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <button class="btn-sm" style="background:var(--blue);color:#fff" onclick="goTo('chat');showToast('Contactando a Lic. Diego Torres')"
+              ><i class="bi bi-chat-fill"></i> Mensaje</button>
+              <button class="btn-sm" style="background:var(--gray-100);color:var(--text2)" onclick="goTo('video')"
+              ><i class="bi bi-camera-video"></i> Video</button>
+            </div>
+          </div>
+        </div>
+        <div style="height:20px"></div>
+      </div><!-- /equipo -->
+
+      <!-- ======= PERFIL ======= -->
+      <div class="view" id="view-perfil">
+        <div style="background:linear-gradient(160deg,#1a6bc4,#1d4ed8);padding:20px 20px 36px;position:relative">
+          <button class="header-icon-btn" style="background:rgba(255,255,255,0.15);color:#fff;margin-bottom:16px" onclick="goTo('home')"><i class="bi bi-arrow-left"></i></button>
+          <div style="display:flex;align-items:center;gap:16px">
+            <div style="width:72px;height:72px;border-radius:24px;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:40px">👴</div>
+            <div>
+              <div style="color:#fff;font-family:'Nunito',sans-serif;font-size:22px;font-weight:900"><span class="u-full">Juan Carlos Pérez</span></div>
+              <div style="color:rgba(255,255,255,0.8);font-size:13px;font-weight:600">Paciente demo · <span class="u-id">001</span></div>
+              <div class="chip chip-green mt-8" style="background:rgba(255,255,255,0.2);color:#fff">
+                <i class="bi bi-shield-check-fill"></i> Plan activo
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section mt-16">
+          
+          <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--gray-100)">
+            <div style="width:36px;height:36px;border-radius:10px;background:#fef3c7;display:flex;align-items:center;justify-content:center;font-size:18px">🎂</div>
+            <div style="flex:1">
+              <div class="t-small">FECHA DE NACIMIENTO</div>
+              <div class="t-sub" style="font-size:14px">Se completa en el ingreso</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--gray-100)">
+            <div style="width:36px;height:36px;border-radius:10px;background:#fee2e2;display:flex;align-items:center;justify-content:center;font-size:18px">🏥</div>
+            <div style="flex:1">
+              <div class="t-small">DIAGNÓSTICO</div>
+              <div class="t-sub" style="font-size:14px">En evaluación inicial</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--gray-100)">
+            <div style="width:36px;height:36px;border-radius:10px;background:#ffedd5;display:flex;align-items:center;justify-content:center;font-size:18px">💊</div>
+            <div style="flex:1">
+              <div class="t-small">ALERGIAS</div>
+              <div class="t-sub" style="font-size:14px">Pendiente de completar</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--gray-100)">
+            <div style="width:36px;height:36px;border-radius:10px;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:18px">🏡</div>
+            <div style="flex:1">
+              <div class="t-small">DOMICILIO</div>
+              <div class="t-sub" style="font-size:14px">Pendiente de completar</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--gray-100)">
+            <div style="width:36px;height:36px;border-radius:10px;background:#d1fae5;display:flex;align-items:center;justify-content:center;font-size:18px">📱</div>
+            <div style="flex:1">
+              <div class="t-small">TELÉFONO</div>
+              <div class="t-sub" style="font-size:14px">Pendiente de completar</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--gray-100)">
+            <div style="width:36px;height:36px;border-radius:10px;background:#fee2e2;display:flex;align-items:center;justify-content:center;font-size:18px">🆘</div>
+            <div style="flex:1">
+              <div class="t-small">CONTACTO EMERGENCIA</div>
+              <div class="t-sub" style="font-size:14px">Pendiente de completar</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--gray-100)">
+            <div style="width:36px;height:36px;border-radius:10px;background:#ede9fe;display:flex;align-items:center;justify-content:center;font-size:18px">🏦</div>
+            <div style="flex:1">
+              <div class="t-small">COBERTURA</div>
+              <div class="t-sub" style="font-size:14px">Pendiente de completar</div>
+            </div>
+          </div>
+
+          <!-- Accessibility settings -->
+          <div class="t-title mt-16 mb-12">Accesibilidad</div>
+          <div class="card card-p">
+            
+            <div class="flex-between" style="padding:10px 0;border-bottom:1px solid var(--gray-100)">
+              <div style="display:flex;align-items:center;gap:10px">
+                <span style="font-size:18px">🔤</span>
+                <div class="t-sub" style="font-size:14px">Texto grande</div>
+              </div>
+              <div style="width:44px;height:24px;border-radius:12px;background:#10b981;display:flex;align-items:center;padding:2px;cursor:pointer;transition:all 0.2s" onclick="showToast('Texto ampliado activado')">
+                <div style="width:20px;height:20px;border-radius:50%;background:#fff;margin-left:20px;transition:all 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.2)"></div>
+              </div>
+            </div>
+            <div class="flex-between" style="padding:10px 0;border-bottom:1px solid var(--gray-100)">
+              <div style="display:flex;align-items:center;gap:10px">
+                <span style="font-size:18px">🎨</span>
+                <div class="t-sub" style="font-size:14px">Alto contraste</div>
+              </div>
+              <div style="width:44px;height:24px;border-radius:12px;background:#94a3b8;display:flex;align-items:center;padding:2px;cursor:pointer;transition:all 0.2s" onclick="showToast('Modo alto contraste')">
+                <div style="width:20px;height:20px;border-radius:50%;background:#fff;margin-left:2px;transition:all 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.2)"></div>
+              </div>
+            </div>
+            <div class="flex-between" style="padding:10px 0;border-bottom:1px solid var(--gray-100)">
+              <div style="display:flex;align-items:center;gap:10px">
+                <span style="font-size:18px">🔊</span>
+                <div class="t-sub" style="font-size:14px">Lectura por voz</div>
+              </div>
+              <div style="width:44px;height:24px;border-radius:12px;background:#94a3b8;display:flex;align-items:center;padding:2px;cursor:pointer;transition:all 0.2s" onclick="showToast('Lectura por voz activada')">
+                <div style="width:20px;height:20px;border-radius:50%;background:#fff;margin-left:2px;transition:all 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.2)"></div>
+              </div>
+            </div>
+            <div class="flex-between" style="padding:10px 0;border-bottom:1px solid var(--gray-100)">
+              <div style="display:flex;align-items:center;gap:10px">
+                <span style="font-size:18px">🌙</span>
+                <div class="t-sub" style="font-size:14px">Modo oscuro</div>
+              </div>
+              <div style="width:44px;height:24px;border-radius:12px;background:#94a3b8;display:flex;align-items:center;padding:2px;cursor:pointer;transition:all 0.2s" onclick="showToast('Modo oscuro activado')">
+                <div style="width:20px;height:20px;border-radius:50%;background:#fff;margin-left:2px;transition:all 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.2)"></div>
+              </div>
+            </div>
+            <div class="flex-between" style="padding:10px 0;border-bottom:1px solid var(--gray-100)">
+              <div style="display:flex;align-items:center;gap:10px">
+                <span style="font-size:18px">👨‍👩‍👧</span>
+                <div class="t-sub" style="font-size:14px">Modo familiar</div>
+              </div>
+              <div style="width:44px;height:24px;border-radius:12px;background:#10b981;display:flex;align-items:center;padding:2px;cursor:pointer;transition:all 0.2s" onclick="showToast('Modo familiar activo')">
+                <div style="width:20px;height:20px;border-radius:50%;background:#fff;margin-left:20px;transition:all 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.2)"></div>
+              </div>
+            </div>
+          </div>
+
+          <button class="btn-big btn-outline mt-16" onclick="showToast('Sesión cerrada')">
+            <i class="bi bi-box-arrow-right"></i> Cerrar sesión
+          </button>
+        </div>
+        <div style="height:20px"></div>
+      </div><!-- /perfil -->
+
+    </div><!-- /screen-scroll -->
+
+
+
+  </div><!-- /screen -->
+
+  <!-- BOTTOM NAV -->
+  <div class="bottom-nav" id="bottom-nav">
+    <div class="nav-btn active" id="nav-home" onclick="goTo('home')">
+      <i class="bi bi-house-fill"></i>
+      <span>Inicio</span>
+    </div>
+    <div class="nav-btn" id="nav-mediciones" onclick="goTo('mediciones')">
+      <i class="bi bi-heart-pulse-fill"></i>
+      <span>Vitales</span>
+    </div>
+    <div class="nav-btn" id="nav-medicacion" onclick="goTo('medicacion')">
+      <i class="bi bi-capsule-pill"></i>
+      <span>Medicación</span>
+      <div class="nav-dot"></div>
+    </div>
+    <div class="nav-btn" id="nav-chat" onclick="goTo('chat')">
+      <i class="bi bi-chat-dots-fill"></i>
+      <span>Mensajes</span>
+      <div class="nav-dot"></div>
+    </div>
+    <div class="nav-btn" id="nav-actividades" onclick="goTo('actividades')">
+      <i class="bi bi-clipboard2-check-fill"></i>
+      <span>Actividades</span>
+    </div>
+  </div>
+
+  
+  <!-- REGISTRO -->
+  <div id="reg-overlay" style="position:absolute;inset:0;z-index:700;background:linear-gradient(180deg,#f0f6ff,#fff);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 24px;gap:14px;text-align:center;overflow-y:auto">
+    <div style="background:#fff;border-radius:16px;padding:8px 14px;box-shadow:0 4px 20px rgba(26,107,196,0.12)">
+      <img id="reg-logo" alt="CuidarT" style="height:72px;width:auto;display:block">
+    </div>
+    <div class="t-huge" style="font-size:25px;margin-top:6px">¡Bienvenido/a a CuidarT!</div>
+    <div class="t-body" style="font-size:14px">Ingresá tu nombre para probar la app. Tu enfermera virtual te responde en vivo desde la central de monitoreo.</div>
+    <input id="reg-nombre" class="input-field" placeholder="Nombre" autocomplete="given-name" maxlength="40" style="text-align:center;font-size:16px">
+    <input id="reg-apellido" class="input-field" placeholder="Apellido" autocomplete="family-name" maxlength="40" style="text-align:center;font-size:16px">
+    <div id="reg-error" style="color:#dc2626;font-size:13px;font-weight:700;min-height:18px"></div>
+    <button class="btn-big btn-primary" id="reg-btn">Ingresar <i class="bi bi-arrow-right"></i></button>
+    <div class="t-small" style="max-width:280px">Demostración: no cargues datos de salud reales.</div>
+    <div id="reg-config-warn" style="display:none;background:#fef3c7;color:#92400e;border-radius:12px;padding:10px 12px;font-size:12px;font-weight:700;max-width:300px">
+      Firebase no está configurado: la app funciona en modo local y nada llega a la plataforma. Revisá firebase-config.js.
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast"></div>
+
+</div><!-- /phone-shell -->
+
+<script>
+// ===== CLOCK =====
+function updateClock(){
+  const n=new Date();
+  const h=n.getHours().toString().padStart(2,'0');
+  const m=n.getMinutes().toString().padStart(2,'0');
+  document.getElementById('clock-time').textContent=h+':'+m;
+}
+setInterval(updateClock,1000); updateClock();
+
+// ===== NAVIGATION =====
+const navMap={home:'home',mediciones:'mediciones',medicacion:'medicacion',chat:'chat',video:null,sintomas:null,actividades:'actividades',equipo:null,perfil:null};
+function goTo(v){
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  const el=document.getElementById('view-'+v);
+  if(el) el.classList.add('active');
+  document.getElementById('screen-scroll').scrollTop=0;
+
+  // Update bottom nav
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  const nb=document.getElementById('nav-'+v);
+  if(nb) nb.classList.add('active');
+
+  // Render charts for mediciones
+  if(v==='mediciones') setTimeout(renderVitalChart,100);
+}
+
+// ===== TOAST =====
+let toastTimer;
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.style.display='block';
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.style.display='none',3000);
+}
+
+// ===== SYMPTOM SCALE =====
+function selectScale(el){
+  const parent=el.parentElement;
+  parent.querySelectorAll('.scale-btn').forEach(b=>b.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+// ===== MED PILLS =====
+const medData={
+  bp:{title:'PRESIÓN ARTERIAL',value:'128<span style="font-size:20px">/82</span>',unit:'mmHg · Hace 1h 20min',emoji:'❤️',chip:'chip-yellow',chipTxt:'Atención',color:'#991b1b',data:[130,124,128,126,122,131,128]},
+  glucose:{title:'GLUCEMIA',value:'104',unit:'mg/dL · Hace 45min',emoji:'🩸',chip:'chip-green',chipTxt:'Normal',color:'#065f46',data:[110,104,118,98,115,104,108]},
+  spo2:{title:'SATURACIÓN O₂',value:'97%',unit:'SpO₂ · Hace 30min',emoji:'🫁',chip:'chip-green',chipTxt:'Normal',color:'#1e3a8a',data:[97,96,98,97,99,97,96]},
+  hr:{title:'FRECUENCIA CARDÍACA',value:'72',unit:'bpm · En tiempo real',emoji:'💓',chip:'chip-green',chipTxt:'Normal',color:'#065f46',data:[78,72,68,80,74,70,72]},
+  temp:{title:'TEMPERATURA',value:'36.4°',unit:'°C · Hace 2h',emoji:'🌡️',chip:'chip-green',chipTxt:'Normal',color:'#1e3a8a',data:[36.4,36.6,36.2,37.1,36.8,36.4,36.5]},
+};
+let currentMed='bp';
+let vitalChart=null;
+
+function setMedPill(btn,med){
+  document.querySelectorAll('#med-pills .pill').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  currentMed=med;
+  const d=medData[med];
+  document.getElementById('med-title').textContent=d.title;
+  document.getElementById('med-value').innerHTML=d.value;
+  document.getElementById('med-unit').textContent=d.unit;
+  document.getElementById('med-emoji').textContent=d.emoji;
+  document.getElementById('med-chip').className='chip '+d.chip;
+  document.getElementById('med-chip').textContent=d.chipTxt;
+  renderVitalChart();
+}
+
+function renderVitalChart(){
+  const ctx=document.getElementById('chart-vital-detail');
+  if(!ctx) return;
+  if(vitalChart){vitalChart.destroy();vitalChart=null;}
+  const d=medData[currentMed];
+  const isDark=false;
+  vitalChart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:['L','M','X','J','V','S','D'],
+      datasets:[{
+        data:d.data,
+        borderColor:d.color,
+        backgroundColor:d.color+'22',
+        borderWidth:2.5,
+        tension:0.4,
+        fill:true,
+        pointBackgroundColor:d.color,
+        pointRadius:4,
+        pointHoverRadius:6,
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#0f1f35',titleColor:'#fff',bodyColor:'#94a3b8',cornerRadius:8}},
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#94a3b8',font:{size:10,family:'Nunito Sans'}}},
+        y:{grid:{color:'#f1f5f9'},ticks:{color:'#94a3b8',font:{size:10,family:'Nunito Sans'}}},
+      }
+    }
+  });
+}
+
+// ===== CHAT SEND =====
+function sendMsg(){
+  const input=document.getElementById('chat-input');
+  const text=input.value.trim();
+  if(!text) return;
+
+  const now=new Date();
+  const hm=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+
+  // Render in app
+  appendAppMsg({from:'patient',text,time:'Juan · '+hm});
+
+  // Persist to localStorage so platform picks it up
+  const msgs=JSON.parse(localStorage.getItem('cuidart_msgs')||'[]');
+  msgs.push({from:'patient',sender:'Juan Carlos Pérez',text,time:hm,ts:Date.now()});
+  localStorage.setItem('cuidart_msgs',JSON.stringify(msgs));
+
+  input.value='';
+  showToast('✅ Mensaje enviado a Enf. García');
+}
+
+function appendAppMsg(m){
+  const container=document.getElementById('app-chat-messages');
+  if(!container) return;
+  const isOut=m.from==='patient';
+  const div=document.createElement('div');
+  div.style.cssText=`display:flex;flex-direction:column;align-items:${isOut?'flex-end':'flex-start'}`;
+  div.innerHTML=`
+    <div class="bubble bubble-${isOut?'out':'in'}" style="${isOut?'':'background:#e0f2fe;color:#0c4a6e'}">${m.text}</div>
+    <div style="font-size:10px;font-weight:600;color:var(--text3);margin-top:3px;${isOut?'text-align:right':''}">${m.time}</div>`;
+  container.appendChild(div);
+  container.scrollTop=container.scrollHeight;
+}
+
+
+
+// ===== ENTER KEY CHAT =====
+document.addEventListener('keydown',function(e){
+  if(e.key==='Enter'&&document.activeElement.id==='chat-input'){
+    e.preventDefault();sendMsg();
+  }
+});
+
+// ===== EMERGENCY =====
+function triggerEmergency(){
+  const modal = document.getElementById('emerg-modal');
+  modal.style.display='flex';
+}
+function cancelEmergency(){
+  document.getElementById('emerg-modal').style.display='none';
+  showToast('✅ Todo bien. ¡Nos alegra!');
+}
+function confirmEmergency(){
+  document.getElementById('emerg-modal').style.display='none';
+  const sent = document.getElementById('emerg-sent');
+  sent.style.display='flex';
+  // Countdown
+  let n=5;
+  const cd=document.getElementById('emerg-countdown');
+  const timer=setInterval(()=>{
+    n--;
+    cd.textContent=n;
+    if(n<=0){clearInterval(timer);}
+  },1000);
+}
+function dismissEmergency(){
+  document.getElementById('emerg-sent').style.display='none';
+  goTo('video');
+}
+
+// ===== INIT =====
+
+</script>
+
+<script>
+/* ============================================================
+   CuidarT · Sincronización con la plataforma (Firebase RTDB)
+   Rutas:  /pacientes/{uid}   perfil + signos vitales + presencia
+           /chats/{uid}/{id}  conversación con enfermería
+           /eventos/{id}      todo lo que hace el paciente (feed de la central)
+   ============================================================ */
+(function(){
+'use strict';
+var LS_KEY='cuidart_user_v2';
+var cfg=window.CUIDART_FIREBASE_CONFIG||{};
+var configured=!!(window.firebase && cfg.databaseURL && !/PEGAR/.test(cfg.databaseURL));
+var DB=null, user=null, vit=null, shown={}, hist=true;
+if(configured){
+  try{ firebase.initializeApp(cfg); DB=firebase.database(); }
+  catch(e){ console.error('Firebase init',e); configured=false; DB=null; }
+}
+
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+function limpiar(s){ return String(s||'').normalize('NFC').replace(/[^\p{L}\p{M}\s'.-]/gu,'').replace(/\s+/g,' ').trim().slice(0,40); }
+function titulo(s){ return s.toLowerCase().replace(/(^|[\s'-])(\p{L})/gu,function(m,a,b){return a+b.toUpperCase();}); }
+function rnd(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+function ts(){ return DB ? firebase.database.ServerValue.TIMESTAMP : Date.now(); }
+function hm(t){ var d=new Date(typeof t==='number'?t:Date.now()); return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
+function toast(m){ if(window.showToast) window.showToast(m); }
+function save(){ try{ localStorage.setItem(LS_KEY,JSON.stringify({user:user,vit:vit})); }catch(e){} }
+
+/* ---------- signos vitales simulados ---------- */
+function newVitals(){ return {sbp:rnd(112,134),dbp:rnd(70,84),glu:rnd(88,116),spo2:rnd(96,99),fc:rnd(62,80)}; }
+function drift(v){
+  function c(x,lo,hi,s){ return Math.min(hi,Math.max(lo,x+rnd(-s,s))); }
+  return {sbp:c(v.sbp,108,138,3),dbp:c(v.dbp,68,88,2),glu:c(v.glu,85,125,4),spo2:c(v.spo2,95,99,1),fc:c(v.fc,58,84,3)};
+}
+function paintVitals(v){
+  var els=document.querySelectorAll('#view-home .vital-val'); if(els.length<4) return;
+  els[0].innerHTML=v.sbp+'<span style="font-size:14px">/'+v.dbp+'</span>';
+  els[1].textContent=v.glu; els[2].textContent=v.spo2+'%'; els[3].textContent=v.fc;
+}
+function paintUser(){
+  var h=new Date().getHours();
+  document.querySelectorAll('.u-greet').forEach(function(e){ e.textContent=h<12?'Buenos días':(h<20?'Buenas tardes':'Buenas noches'); });
+  document.querySelectorAll('.u-first').forEach(function(e){ e.textContent=user.nombre; });
+  document.querySelectorAll('.u-full').forEach(function(e){ e.textContent=user.nombre+' '+user.apellido; });
+  document.querySelectorAll('.u-id').forEach(function(e){ e.textContent=user.uid.replace(/[^A-Za-z0-9]/g,'').slice(-6).toUpperCase(); });
+}
+
+/* ---------- envío de eventos a la central ---------- */
+function evento(tipo,extra){
+  if(!DB||!user) return;
+  var e={uid:user.uid,tipo:tipo,ts:ts()};
+  for(var k in extra){ e[k]=extra[k]; }
+  DB.ref('eventos').push(e).catch(function(err){ console.error(err); toast('⚠️ No se pudo enviar. Revisá tu conexión.'); });
+}
+function ensureRecord(){
+  var pref=DB.ref('pacientes/'+user.uid);
+  return pref.once('value').then(function(s){
+    if(s.exists()) return;
+    return pref.set({nombre:user.nombre,apellido:user.apellido,creado:ts(),online:true,visto:ts(),
+                     vitales:Object.assign({ts:ts()},vit)})
+      .then(function(){ evento('ingreso',{texto:'Se registró en la app'}); });
+  });
+}
+
+/* ---------- chat ---------- */
+function addBubble(m,key){
+  var box=$('app-chat-messages'); if(!box) return;
+  if(key){ if(shown[key]) return; }
+  var out=m.de==='paciente';
+  var d=document.createElement('div');
+  d.style.cssText='display:flex;flex-direction:column;align-items:'+(out?'flex-end':'flex-start');
+  d.innerHTML='<div class="bubble bubble-'+(out?'out':'in')+'">'+esc(m.texto)+'</div>'+
+    '<div style="font-size:10px;font-weight:600;color:var(--text3);margin-top:3px;'+(out?'text-align:right':'')+'">'+
+    (out?esc(user.nombre):'Enf. García')+' · '+hm(m.ts)+'</div>';
+  box.appendChild(d);
+  if(key) shown[key]=d;
+  var chatView=$('view-chat'), sc=$('screen-scroll');
+  if(chatView && chatView.classList.contains('active') && sc) sc.scrollTop=sc.scrollHeight;
+}
+function initChat(){
+  var box=$('app-chat-messages'); if(!box) return;
+  box.innerHTML='';
+  addBubble({de:'enfermeria',texto:'Hola '+user.nombre+' 😊 Soy Enf. García, de la central de monitoreo. Escribime por acá si necesitás algo.',ts:Date.now()},null);
+  if(!DB) return;
+  var ref=DB.ref('chats/'+user.uid); hist=true;
+  ref.on('child_added',function(s){
+    var m=s.val(); if(!m) return;
+    addBubble(m,s.key);
+    if(!hist && m.de==='enfermeria') toast('💬 Enf. García: '+String(m.texto).slice(0,50));
+  });
+  ref.on('child_removed',function(s){
+    var el=shown[s.key]; if(el&&el.parentNode) el.parentNode.removeChild(el); delete shown[s.key];
+  });
+  ref.once('value').then(function(){ hist=false; });
+}
+window.sendMsg=function(){
+  var input=$('chat-input'); var text=(input.value||'').trim().slice(0,500);
+  if(!text) return;
+  input.value='';
+  if(DB&&user){
+    DB.ref('chats/'+user.uid).push({de:'paciente',texto:text,ts:ts()}).catch(function(){ toast('⚠️ No se pudo enviar el mensaje'); });
+    evento('mensaje',{de:'paciente',texto:text});
+  } else {
+    addBubble({de:'paciente',texto:text,ts:Date.now()},null);
+  }
+};
+
+/* ---------- acciones de la app -> central ---------- */
+function wireSymptoms(){
+  var view=$('view-sintomas'); if(!view) return;
+  var btn=view.querySelector('.btn-big'); if(!btn) return;
+  btn.onclick=function(){
+    var groups=view.querySelectorAll('.section > div[style*="margin-bottom:20px"]');
+    var vals={}, max=0, any=false;
+    groups.forEach(function(g){
+      var lab=g.querySelector('.t-sub'), sel=g.querySelector('.scale-btn.selected');
+      if(lab&&sel){ var v=parseInt(sel.textContent,10); vals[lab.textContent.trim()]=v; any=true; if(v>max) max=v; }
+    });
+    if(!any){ toast('Elegí al menos un síntoma para enviar'); return; }
+    var ta=view.querySelector('textarea'); var obs=ta?ta.value.trim().slice(0,400):'';
+    evento('sintomas',{valores:vals,max:max,texto:obs});
+    view.querySelectorAll('.scale-btn.selected').forEach(function(b){ b.classList.remove('selected'); });
+    if(ta) ta.value='';
+    toast('✅ Síntomas enviados a enfermería');
+  };
+}
+function medAction(name,accion,chip){
+  evento('medicacion',{medicamento:name,accion:accion});
+  var map={'Tomado':['chip chip-green','✅ Tomado'],'Pospuesto':['chip chip-yellow','⏰ Pospuesto'],'No tomado':['chip chip-red','✕ No tomado']};
+  if(chip&&map[accion]){ chip.className=map[accion][0]; chip.textContent=map[accion][1]; chip.style.flexShrink='0'; }
+  toast(accion==='Tomado'?'✅ '+name+' registrado':(accion==='Pospuesto'?'⏰ Pospuesto 30 minutos':'Registrado: no tomado'));
+}
+function wireMeds(){
+  document.querySelectorAll('#view-medicacion .med-item').forEach(function(item){
+    var nameEl=item.querySelector('.t-sub'), actions=item.querySelector('.med-actions');
+    if(!nameEl||!actions) return;
+    var name=nameEl.textContent.trim(), chip=item.querySelector(':scope > .chip');
+    var btns=actions.querySelectorAll('.btn-sm'); if(btns.length<2) return;
+    btns[0].textContent='✓ Tomado';   btns[0].onclick=function(){ medAction(name,'Tomado',chip); };
+    btns[1].textContent='⏰ Posponer'; btns[1].onclick=function(){ medAction(name,'Pospuesto',chip); };
+    var no=document.createElement('button');
+    no.className='btn-sm'; no.style.cssText='background:#fee2e2;color:#991b1b;font-size:12px'; no.textContent='✕ No tomé';
+    no.onclick=function(){ medAction(name,'No tomado',chip); };
+    actions.appendChild(no);
+  });
+}
+function wireActivities(){
+  document.querySelectorAll('#view-actividades .card.card-p.mb-8').forEach(function(card){
+    var btn=card.querySelector('.btn-sm'), nameEl=card.querySelector('.t-sub'), chip=card.querySelector('.chip');
+    if(!btn||!nameEl||!chip) return;
+    var name=nameEl.textContent.trim();
+    btn.onclick=function(){
+      if(btn.textContent.indexOf('Iniciar')>-1){
+        evento('actividad',{actividad:name,accion:'Iniciada'});
+        chip.className='chip chip-blue'; chip.textContent='En curso'; btn.textContent='✓ Marcar completada';
+        toast('Actividad iniciada');
+      } else {
+        evento('actividad',{actividad:name,accion:'Completada'});
+        chip.className='chip chip-green'; chip.textContent='✅ Hecha'; btn.textContent='✓ Completada';
+        toast('✅ ¡Actividad completada!');
+      }
+    };
+  });
+}
+function wireMisc(){
+  var ce=window.confirmEmergency;
+  window.confirmEmergency=function(){ evento('emergencia',{texto:'Necesito ayuda ahora'}); ce(); };
+  var vb=document.querySelector('#view-video .btn-red');
+  if(vb) vb.onclick=function(){ evento('emergencia',{texto:'Necesito ayuda ahora (durante la videollamada)'}); toast('🚨 Alerta de emergencia enviada'); };
+  var lo=Array.prototype.filter.call(document.querySelectorAll('#view-perfil .btn-big'),function(b){ return /Cerrar sesión/.test(b.textContent); })[0];
+  if(lo){
+    lo.innerHTML='<i class="bi bi-box-arrow-right"></i> Salir y cambiar de usuario';
+    lo.onclick=function(){
+      if(DB&&user){ DB.ref('pacientes/'+user.uid+'/online').set(false); }
+      try{ localStorage.removeItem(LS_KEY); }catch(e){}
+      setTimeout(function(){ location.reload(); },300);
+    };
+  }
+}
+
+/* ---------- arranque ---------- */
+function start(){
+  $('reg-overlay').style.display='none';
+  paintUser(); paintVitals(vit); initChat();
+  wireSymptoms(); wireMeds(); wireActivities(); wireMisc();
+  if(!DB) return;
+  DB.ref('.info/connected').on('value',function(s){
+    if(s.val()!==true) return;
+    ensureRecord().then(function(){
+      var pref=DB.ref('pacientes/'+user.uid);
+      pref.child('online').onDisconnect().set(false);
+      pref.child('online').set(true);
+      pref.child('visto').set(ts());
+    }).catch(function(err){ console.error(err); toast('⚠️ No se pudo conectar con la central'); });
+  });
+  setInterval(function(){
+    vit=drift(vit); save(); paintVitals(vit);
+    ensureRecord().then(function(){
+      return DB.ref('pacientes/'+user.uid).update({vitales:Object.assign({ts:ts()},vit),visto:ts(),online:true});
+    }).catch(function(){});
+  },30000);
+}
+function register(){
+  var n=titulo(limpiar($('reg-nombre').value)), ap=titulo(limpiar($('reg-apellido').value));
+  if(n.length<2||ap.length<2){ $('reg-error').textContent='Ingresá tu nombre y apellido'; return; }
+  var uid=DB?DB.ref('pacientes').push().key:('local'+Date.now().toString(36));
+  user={uid:uid,nombre:n,apellido:ap}; vit=newVitals(); save();
+  start();
+  toast('¡Bienvenido/a '+n+'! 🏥');
+}
+
+var st=document.createElement('style');
+st.textContent='.med-actions{flex-wrap:wrap}';
+document.head.appendChild(st);
+
+window.onload=null;
+var logoSrc=document.querySelector('.greeting-header img[alt="CuidarT"]');
+if(logoSrc) $('reg-logo').src=logoSrc.src;
+if(!configured) $('reg-config-warn').style.display='block';
+$('reg-btn').onclick=register;
+['reg-nombre','reg-apellido'].forEach(function(id){
+  $(id).addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); register(); } });
+});
+var saved=null;
+try{ saved=JSON.parse(localStorage.getItem(LS_KEY)); }catch(e){}
+if(saved&&saved.user&&saved.user.uid){ user=saved.user; vit=saved.vit||newVitals(); start(); }
+})();
+</script>
+</body>
+</html>
