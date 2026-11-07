@@ -449,6 +449,25 @@ body{
 .text-yellow{color:var(--yellow);}
 .fw-800{font-weight:800;}
 .fw-700{font-weight:700;}
+
+/* === v2: videollamada real + adjuntos === */
+#vc-stage{height:300px;background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:var(--radius);position:relative;overflow:hidden}
+#vc-remote{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;display:none}
+#vc-idle{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:rgba(255,255,255,.7)}
+.vc-avatar{width:70px;height:70px;border-radius:50%;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:32px}
+#vc-local{position:absolute;right:10px;bottom:10px;width:84px;height:112px;object-fit:cover;border-radius:10px;border:2px solid rgba(255,255,255,.4);transform:scaleX(-1);background:#334155;display:none;z-index:2}
+#vc-timer{position:absolute;top:10px;left:10px;z-index:2;background:rgba(220,38,38,.9);color:#fff;font-size:12px;font-weight:700;padding:4px 10px;border-radius:99px}
+.vc-ctrl.off{background:#fee2e2 !important;color:#b91c1c !important}
+.chat-img{display:block;max-width:100%;max-height:230px;border-radius:12px;cursor:zoom-in;background:#e2e8f0}
+.chat-doc{display:inline-flex;align-items:center;gap:8px;font-weight:700;color:inherit;text-decoration:underline;word-break:break-all}
+.bubble.has-media{padding:6px}
+.bubble.has-media .cap{padding:6px 8px 2px}
+.att-opt{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 6px;border:0;border-radius:16px;background:var(--gray-100);color:var(--text);font-size:12px;font-weight:700;cursor:pointer}
+.att-opt i{font-size:26px;color:var(--blue)}
+.att-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.att-img{max-width:100%;max-height:260px;border-radius:12px;display:block;margin:0 auto}
+.att-pdf{display:flex;align-items:center;gap:10px;padding:16px;border-radius:14px;background:var(--gray-100);font-weight:700;word-break:break-all}
+.att-pdf i{font-size:32px;color:#dc2626}
 </style>
 <meta name="theme-color" content="#1a6bc4">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -947,8 +966,8 @@ body{
 
         <!-- Input -->
         <div style="position:sticky;bottom:0;background:#fff;padding:12px 16px;border-top:1px solid var(--gray-100);display:flex;gap:8px;align-items:flex-end">
-          <button class="header-icon-btn" onclick="showToast('Adjuntar archivo')"><i class="bi bi-paperclip"></i></button>
-          <button class="header-icon-btn" onclick="showToast('Enviar foto')"><i class="bi bi-camera"></i></button>
+          <button class="header-icon-btn" onclick="cuidartAttach()" aria-label="Adjuntar"><i class="bi bi-paperclip"></i></button>
+          <button class="header-icon-btn" onclick="cuidartCam()" aria-label="Tomar foto"><i class="bi bi-camera"></i></button>
           <textarea class="input-field" style="flex:1;resize:none;height:44px;padding:10px 14px" placeholder="Escribir mensaje..." id="chat-input" rows="1"></textarea>
           <button class="header-icon-btn" style="background:var(--blue);color:#fff" onclick="sendMsg()"><i class="bi bi-send-fill"></i></button>
         </div>
@@ -957,46 +976,39 @@ body{
       <!-- ======= VIDEO ======= -->
       <div class="view" id="view-video">
         <div class="app-header bordered">
-          <button class="header-icon-btn" onclick="goTo('home')" style="background:var(--blue-light);color:var(--blue)"><i class="bi bi-arrow-left"></i></button>
+          <button class="header-icon-btn" onclick="vcBack()" style="background:var(--blue-light);color:var(--blue)"><i class="bi bi-arrow-left"></i></button>
           <div class="t-title">Videollamada</div>
-          <span class="chip chip-red"><i class="bi bi-circle-fill" style="font-size:8px"></i> EN VIVO</span>
+          <span class="chip chip-red" id="vc-live" style="display:none"><i class="bi bi-circle-fill" style="font-size:8px"></i> EN VIVO</span>
         </div>
 
         <div class="section mt-16">
-          <div class="video-main-area">
-            <div style="display:flex;flex-direction:column;align-items:center;gap:10px;color:rgba(255,255,255,0.6)">
-              <div style="width:70px;height:70px;border-radius:50%;background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:32px">👩‍⚕️</div>
+          <div id="vc-stage">
+            <video id="vc-remote" autoplay playsinline></video>
+            <div id="vc-idle">
+              <div class="vc-avatar">👩‍⚕️</div>
               <div style="font-size:14px;font-weight:700">Enf. María García</div>
-              <div style="font-size:12px">Conectando...</div>
+              <div style="font-size:12px" id="vc-status">Listo para llamar</div>
             </div>
-            <div class="video-self"><i class="bi bi-person-fill"></i></div>
-            <div style="position:absolute;top:10px;left:10px">
-              <span class="chip chip-red"><div class="sdot sdot-red" style="margin-right:2px"></div> REC 02:34</span>
-            </div>
+            <video id="vc-local" autoplay playsinline muted></video>
+            <div id="vc-timer" style="display:none"></div>
           </div>
 
-          <!-- Controls -->
-          <div style="display:flex;justify-content:center;gap:16px;margin-top:20px">
-            <button class="vc-ctrl" style="background:var(--gray-100);color:var(--text)" onclick="showToast('Micrófono silenciado')"><i class="bi bi-mic-fill"></i></button>
-            <button class="vc-ctrl" style="background:var(--gray-100);color:var(--text)" onclick="showToast('Cámara pausada')"><i class="bi bi-camera-video-fill"></i></button>
-            <button class="vc-ctrl" style="background:var(--gray-100);color:var(--text)" onclick="showToast('Altavoz activado')"><i class="bi bi-volume-up-fill"></i></button>
-            <button class="vc-ctrl" style="background:var(--red);color:#fff;width:60px;height:60px" onclick="goTo('home');showToast('Llamada finalizada')"><i class="bi bi-telephone-x-fill"></i></button>
+          <div id="vc-ctl-idle" style="margin-top:16px">
+            <button class="btn-big btn-primary" onclick="vcCall()"><i class="bi bi-camera-video-fill"></i> Llamar a enfermería</button>
+            <div style="font-size:12px;color:var(--text3);text-align:center;margin-top:8px;line-height:1.4">Te va a pedir permiso para usar la cámara y el micrófono.</div>
           </div>
-          <!-- Emergency in call -->
+          <div id="vc-ctl-calling" style="display:none;margin-top:16px">
+            <button class="btn-big btn-gray" onclick="vcHang()"><i class="bi bi-x-circle-fill"></i> Cancelar llamada</button>
+          </div>
+          <div id="vc-ctl-live" style="display:none;justify-content:center;gap:16px;margin-top:20px">
+            <button class="vc-ctrl" id="vc-mic" style="background:var(--gray-100);color:var(--text)" onclick="vcMic()"><i class="bi bi-mic-fill"></i></button>
+            <button class="vc-ctrl" id="vc-cam" style="background:var(--gray-100);color:var(--text)" onclick="vcCamTog()"><i class="bi bi-camera-video-fill"></i></button>
+            <button class="vc-ctrl" style="background:var(--red);color:#fff;width:60px;height:60px" onclick="vcHang()"><i class="bi bi-telephone-x-fill"></i></button>
+          </div>
+
           <button class="btn-big btn-red mt-16" onclick="showToast('🚨 Alerta de emergencia enviada')">
             <i class="bi bi-exclamation-octagon-fill"></i> Necesito ayuda ahora
           </button>
-        </div>
-
-        <!-- In-call chat -->
-        <div class="section mt-16">
-          <div class="t-title mb-12">Chat de consulta</div>
-          <div class="card card-p" style="background:var(--gray-50)">
-            <div style="display:flex;flex-direction:column;gap:8px">
-              <div style="align-self:flex-start"><div class="bubble bubble-in" style="font-size:13px">¿Cómo se siente ahora Juan?</div></div>
-              <div style="align-self:flex-end"><div class="bubble bubble-out" style="font-size:13px">Mejor, el mareo pasó</div></div>
-            </div>
-          </div>
         </div>
         <div style="height:20px"></div>
       </div><!-- /video -->
@@ -1452,6 +1464,49 @@ body{
 
   
   <!-- REGISTRO -->
+  <input type="file" id="in-cam" accept="image/*" capture="environment" hidden>
+  <input type="file" id="in-selfie" accept="image/*" capture="user" hidden>
+  <input type="file" id="in-gal" accept="image/*" hidden>
+  <input type="file" id="in-file" accept="image/*,application/pdf" hidden>
+
+  <div id="att-overlay" style="display:none;position:absolute;inset:0;z-index:640;background:rgba(15,23,42,.5);align-items:flex-end">
+    <div style="background:#fff;width:100%;border-radius:22px 22px 0 0;padding:18px 18px 22px">
+      <div id="att-menu">
+        <div class="t-title" style="margin-bottom:14px">Enviar a enfermería</div>
+        <div class="att-grid">
+          <button class="att-opt" id="att-cam"><i class="bi bi-camera-fill"></i>Tomar foto</button>
+          <button class="att-opt" id="att-selfie"><i class="bi bi-person-bounding-box"></i>Selfie</button>
+          <button class="att-opt" id="att-gal"><i class="bi bi-images"></i>Galería</button>
+          <button class="att-opt" id="att-file"><i class="bi bi-folder2-open"></i>Archivos</button>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin:12px 0;text-align:center">Fotos o PDF de hasta 450 KB (estudios, recetas, heridas, etc.)</div>
+        <button class="btn-big btn-gray" id="att-cancel">Cancelar</button>
+      </div>
+      <div id="att-prev" style="display:none">
+        <div id="att-box" style="margin-bottom:12px"></div>
+        <input class="input-field" id="att-cap" maxlength="200" placeholder="Agregar un comentario (opcional)" style="width:100%;margin-bottom:12px">
+        <div style="display:flex;gap:10px">
+          <button class="btn-big btn-gray" id="att-cancel2" style="flex:1">Cancelar</button>
+          <button class="btn-big btn-primary" id="att-send" style="flex:1"><i class="bi bi-send-fill"></i> Enviar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="lightbox" style="display:none;position:absolute;inset:0;z-index:800;background:rgba(0,0,0,.92);align-items:center;justify-content:center;padding:10px">
+    <img id="lb-img" alt="" style="max-width:100%;max-height:100%;border-radius:8px">
+  </div>
+
+  <div id="call-incoming" style="display:none;position:absolute;inset:0;z-index:650;background:linear-gradient(180deg,#0a7cff,#0b3d91);color:#fff;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:28px;text-align:center">
+    <div style="width:92px;height:92px;border-radius:50%;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:44px">👩‍⚕️</div>
+    <div style="font-size:22px;font-weight:800">Enfermería te está llamando</div>
+    <div style="opacity:.85;font-size:14px">Videollamada entrante</div>
+    <div style="display:flex;gap:18px;margin-top:10px">
+      <button class="vc-ctrl" style="background:#ef4444;color:#fff;width:64px;height:64px" onclick="vcDecline()"><i class="bi bi-telephone-x-fill"></i></button>
+      <button class="vc-ctrl" style="background:#22c55e;color:#fff;width:64px;height:64px" onclick="vcAccept()"><i class="bi bi-telephone-fill"></i></button>
+    </div>
+  </div>
+
   <div id="reg-overlay" style="position:absolute;inset:0;z-index:700;background:linear-gradient(180deg,#f0f6ff,#fff);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 24px;gap:14px;text-align:center;overflow-y:auto">
     <div style="background:#fff;border-radius:16px;padding:8px 14px;box-shadow:0 4px 20px rgba(26,107,196,0.12)">
       <img id="reg-logo" alt="CuidarT" style="height:72px;width:auto;display:block">
@@ -1719,9 +1774,17 @@ function addBubble(m,key){
   var out=m.de==='paciente';
   var d=document.createElement('div');
   d.style.cssText='display:flex;flex-direction:column;align-items:'+(out?'flex-end':'flex-start');
-  d.innerHTML='<div class="bubble bubble-'+(out?'out':'in')+'">'+esc(m.texto)+'</div>'+
+  var media=!!((m.img&&RE_IMG.test(m.img))||(m.doc&&RE_PDF.test(m.doc)));
+  var inner;
+  if(m.img&&RE_IMG.test(m.img)) inner='<img class="chat-img" src="'+m.img+'" alt="Foto">';
+  else if(m.doc&&RE_PDF.test(m.doc)) inner='<a href="#" class="chat-doc"><i class="bi bi-file-earmark-pdf-fill"></i> '+esc(m.docNombre||'archivo.pdf')+'</a>';
+  else inner=esc(m.texto);
+  if(media&&m.cap) inner+='<div class="cap">'+esc(m.cap)+'</div>';
+  d.innerHTML='<div class="bubble bubble-'+(out?'out':'in')+(media?' has-media':'')+'">'+inner+'</div>'+
     '<div style="font-size:10px;font-weight:600;color:var(--text3);margin-top:3px;'+(out?'text-align:right':'')+'">'+
     (out?esc(user.nombre):'Enf. García')+' · '+hm(m.ts)+'</div>';
+  var im=d.querySelector('img.chat-img'); if(im) im.onclick=function(){ window.cuidartZoom(im.src); };
+  var dl=d.querySelector('a.chat-doc'); if(dl) dl.onclick=function(ev){ ev.preventDefault(); saveDataUrl(m.doc,m.docNombre||'archivo.pdf'); };
   box.appendChild(d);
   if(key) shown[key]=d;
   var chatView=$('view-chat'), sc=$('screen-scroll');
@@ -1828,11 +1891,329 @@ function wireMisc(){
   }
 }
 
+/* ---------- archivos: imágenes y PDF (se guardan como texto base64 en Firebase) ---------- */
+var MAXIMG=300000, MAXPDF=450000;
+var RE_IMG=/^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/, RE_PDF=/^data:application\/pdf;base64,[A-Za-z0-9+\/=]+$/;
+function imgToDataURL(file){
+  return new Promise(function(res,rej){
+    var url=URL.createObjectURL(file), im=new Image();
+    im.onload=function(){
+      var w=im.naturalWidth||im.width, h=im.naturalHeight||im.height, max=1024, out='';
+      for(var n=0;n<6;n++){
+        var k=Math.min(1,max/Math.max(w,h)), c=document.createElement('canvas');
+        c.width=Math.max(1,Math.round(w*k)); c.height=Math.max(1,Math.round(h*k));
+        var g=c.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,c.width,c.height); g.drawImage(im,0,0,c.width,c.height);
+        out=c.toDataURL('image/jpeg',0.78);
+        if(out.length<=MAXIMG) break;
+        max=Math.round(max*0.75);
+      }
+      URL.revokeObjectURL(url);
+      if(out.length<=MAXIMG) res(out); else rej(new Error('grande'));
+    };
+    im.onerror=function(){ URL.revokeObjectURL(url); rej(new Error('formato')); };
+    im.src=url;
+  });
+}
+function pdfToDataURL(file){
+  return new Promise(function(res,rej){
+    if(file.size>MAXPDF) return rej(new Error('pdf-grande'));
+    var r=new FileReader();
+    r.onload=function(){ res(String(r.result).replace(/^data:[^;,]*;base64,/,'data:application/pdf;base64,')); };
+    r.onerror=function(){ rej(new Error('lectura')); };
+    r.readAsDataURL(file);
+  });
+}
+function saveDataUrl(dataUrl,name){
+  fetch(dataUrl).then(function(r){ return r.blob(); }).then(function(b){
+    var u=URL.createObjectURL(b), a=document.createElement('a');
+    a.href=u; a.download=name||'archivo.pdf'; document.body.appendChild(a); a.click();
+    setTimeout(function(){ URL.revokeObjectURL(u); a.remove(); },4000);
+  });
+}
+function fresh(t){ return typeof t==='number' && Math.abs(Date.now()-t)<120000; }
+function pickErr(e){
+  var m=e&&e.message;
+  return m==='pdf-grande'?'El PDF supera los 450 KB. Probá con uno más liviano.'
+        :(m==='formato'?'No pude leer ese archivo. Probá con otra foto.'
+        :(m==='grande'?'La imagen es demasiado pesada.':'No se pudo preparar el archivo'));
+}
+
+/* ---------- videollamada: WebRTC 1 a 1, señalización por Firebase (/llamadas/{uid}) ---------- */
+var ICE_BASE=[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}];
+function loadIce(){
+  var u=window.CUIDART_TURN_URL;
+  if(!u||/PEGAR/.test(u)||!window.fetch) return Promise.resolve(ICE_BASE);
+  return fetch(u).then(function(r){ return r.json(); }).then(function(a){
+    return (Array.isArray(a)&&a.length)?ICE_BASE.concat(a):ICE_BASE;
+  }).catch(function(){ return ICE_BASE; });
+}
+function getMedia(){
+  var md=navigator.mediaDevices;
+  if(!md||!md.getUserMedia) return Promise.reject(new Error('nosupport'));
+  return md.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:true})
+    .catch(function(e){
+      if(e&&(e.name==='NotAllowedError'||e.name==='SecurityError')) throw e;
+      return md.getUserMedia({audio:true});          // sin cámara: al menos audio
+    });
+}
+function callErr(e){
+  var n=e&&e.name;
+  if(n==='NotAllowedError'||n==='SecurityError') return 'Permití el acceso a la cámara y al micrófono para poder llamar.';
+  if(n==='NotFoundError') return 'No se encontró cámara ni micrófono en este dispositivo.';
+  if(e&&e.message==='nosupport') return 'Este navegador no permite videollamadas (probá con Chrome o Safari).';
+  return 'No se pudo iniciar la llamada.';
+}
+function CallSession(DB,uid,isCaller,hooks){
+  var ref=DB.ref('llamadas/'+uid), mine=isCaller?'candA':'candB', theirs=isCaller?'candB':'candA';
+  var pc=null, local=null, ended=false, started=false, remoteSet=false, answered=false, ready=!isCaller, timer=null;
+  var pend=[], outQ=[], vh=null, ch=null;
+  function cb(n,a){ try{ if(hooks[n]) hooks[n](a); }catch(e){ console.error(e); } }
+  function pushCand(c){
+    var s=JSON.stringify(c);
+    if(!ready){ outQ.push(s); return; }
+    ref.child(mine).push(s).catch(function(){});
+  }
+  function flush(){ ready=true; outQ.splice(0).forEach(function(s){ ref.child(mine).push(s).catch(function(){}); }); }
+  function addCand(c){
+    if(!pc) return;
+    if(!remoteSet){ pend.push(c); return; }
+    try{ pc.addIceCandidate(new RTCIceCandidate(c)).catch(function(){}); }catch(e){}
+  }
+  function drain(){ remoteSet=true; pend.splice(0).forEach(addCand); }
+  function stopAll(){
+    clearTimeout(timer);
+    if(local) local.getTracks().forEach(function(t){ t.stop(); });
+    if(pc){ try{ pc.close(); }catch(e){} }
+  }
+  function build(ice){
+    pc=new RTCPeerConnection({iceServers:ice});
+    local.getTracks().forEach(function(t){ pc.addTrack(t,local); });
+    pc.ontrack=function(e){ if(e.streams&&e.streams[0]) cb('onRemote',e.streams[0]); };
+    pc.onicecandidate=function(e){ if(e.candidate) pushCand(e.candidate.toJSON?e.candidate.toJSON():e.candidate); };
+    pc.onconnectionstatechange=function(){
+      cb('onState',pc.connectionState);
+      if(pc.connectionState==='failed') finish('falla');
+    };
+  }
+  function watchCands(){
+    ch=function(s){ try{ addCand(JSON.parse(s.val())); }catch(e){} };
+    ref.child(theirs).on('child_added',ch);
+  }
+  function finish(reason){
+    if(ended) return; ended=true;
+    try{ if(ch) ref.child(theirs).off('child_added',ch); if(vh) ref.off('value',vh); }catch(e){}
+    try{ ref.onDisconnect().cancel(); }catch(e){}
+    stopAll();
+    if(started) ref.remove().catch(function(){});
+    cb('onEnd',reason);
+  }
+  function fail(e){ ended=true; stopAll(); throw e; }
+
+  /* quien llama */
+  this.start=function(info){
+    return Promise.all([getMedia(),loadIce()]).then(function(r){
+      local=r[0]; cb('onLocal',local); build(r[1]);
+      return pc.createOffer();
+    }).then(function(o){ return pc.setLocalDescription(o); })
+    .then(function(){
+      return ref.set({estado:'llamando',de:info.de,nombre:String(info.nombre||'').slice(0,80),
+        ts:firebase.database.ServerValue.TIMESTAMP,
+        offer:{type:pc.localDescription.type,sdp:pc.localDescription.sdp}});
+    }).then(function(){
+      started=true; flush(); watchCands();
+      try{ ref.onDisconnect().remove(); }catch(e){}
+      vh=function(s){
+        var v=s.val();
+        if(!v){ finish('remota'); return; }
+        if(v.estado==='rechazada'){ finish('rechazada'); return; }
+        if(v.answer && !answered){
+          answered=true; cb('onAnswered');
+          pc.setRemoteDescription(v.answer).then(drain).catch(function(e){ console.error(e); finish('falla'); });
+        }
+      };
+      ref.on('value',vh);
+      timer=setTimeout(function(){ if(!answered) finish('sin_respuesta'); },60000);
+    }).catch(fail);
+  };
+
+  /* quien atiende */
+  this.answer=function(offer){
+    return Promise.all([getMedia(),loadIce()]).then(function(r){
+      local=r[0]; cb('onLocal',local); build(r[1]);
+      watchCands();
+      return pc.setRemoteDescription(offer);
+    }).then(function(){ drain(); return pc.createAnswer(); })
+    .then(function(a){ return pc.setLocalDescription(a); })
+    .then(function(){
+      return ref.update({estado:'en_curso',answer:{type:pc.localDescription.type,sdp:pc.localDescription.sdp}});
+    }).then(function(){
+      started=true;
+      try{ ref.onDisconnect().remove(); }catch(e){}
+      vh=function(s){ if(!s.val()) finish('remota'); };
+      ref.on('value',vh);
+    }).catch(function(e){
+      try{ if(ch) ref.child(theirs).off('child_added',ch); }catch(x){}
+      ref.update({estado:'rechazada'}).catch(function(){});
+      fail(e);
+    });
+  };
+  this.toggle=function(kind){
+    if(!local) return false;
+    var tr=kind==='mic'?local.getAudioTracks():local.getVideoTracks();
+    if(!tr.length) return false;
+    var on=!tr[0].enabled; tr.forEach(function(t){ t.enabled=on; }); return on;
+  };
+  this.hangup=function(){ finish('local'); };
+  this.active=function(){ return !ended; };
+}
+function mmss(ms){ var s=Math.floor(ms/1000); return ('0'+Math.floor(s/60)).slice(-2)+':'+('0'+(s%60)).slice(-2); }
+
+/* ---------- adjuntar fotos y archivos ---------- */
+var picked=null;
+function sheet(mode){
+  $('att-overlay').style.display=mode?'flex':'none';
+  $('att-menu').style.display=mode==='menu'?'block':'none';
+  $('att-prev').style.display=mode==='prev'?'block':'none';
+}
+function closeSheet(){ sheet(null); picked=null; $('att-cap').value=''; }
+function onPick(file){
+  if(!file) return;
+  var isPdf=file.type==='application/pdf'||/\.pdf$/i.test(file.name||'');
+  toast('Preparando archivo…');
+  (isPdf?pdfToDataURL(file):imgToDataURL(file)).then(function(d){
+    picked={kind:isPdf?'pdf':'img',data:d,nombre:String(file.name||'archivo.pdf').slice(0,60)};
+    $('att-box').innerHTML=isPdf
+      ? '<div class="att-pdf"><i class="bi bi-file-earmark-pdf-fill"></i><span>'+esc(picked.nombre)+'</span></div>'
+      : '<img src="'+d+'" class="att-img" alt="">';
+    sheet('prev');
+  }).catch(function(e){ toast(pickErr(e)); });
+}
+function sendPicked(){
+  if(!picked) return;
+  var p=picked, cap=($('att-cap').value||'').trim().slice(0,200);
+  closeSheet();
+  var texto=p.kind==='img'?'📷 Foto':'📄 '+p.nombre;
+  var m={de:'paciente',texto:texto};
+  if(p.kind==='img') m.img=p.data; else { m.doc=p.data; m.docNombre=p.nombre; }
+  if(cap) m.cap=cap;
+  if(DB&&user){
+    var r=DB.ref('chats/'+user.uid).push();
+    m.ts=ts();
+    r.set(m).then(function(){
+      var ex={chatKey:r.key,texto:texto}; if(cap) ex.cap=cap;
+      evento(p.kind==='img'?'imagen':'archivo',ex);
+      toast('✅ Enviado a enfermería');
+    }).catch(function(){ toast('⚠️ No se pudo enviar. Probá con un archivo más liviano.'); });
+  } else { m.ts=Date.now(); addBubble(m,null); }
+}
+window.cuidartAttach=function(){ sheet('menu'); };
+window.cuidartCam=function(){ $('in-cam').click(); };
+window.cuidartZoom=function(src){
+  if(!RE_IMG.test(src)) return;
+  $('lb-img').src=src; $('lightbox').style.display='flex';
+};
+function wireMedia(){
+  var map={'att-cam':'in-cam','att-selfie':'in-selfie','att-gal':'in-gal','att-file':'in-file'};
+  Object.keys(map).forEach(function(b){ $(b).onclick=function(){ $(map[b]).click(); }; });
+  ['in-cam','in-selfie','in-gal','in-file'].forEach(function(id){
+    $(id).onchange=function(){ var f=this.files&&this.files[0]; this.value=''; onPick(f); };
+  });
+  $('att-cancel').onclick=closeSheet; $('att-cancel2').onclick=closeSheet;
+  $('att-send').onclick=sendPicked;
+  $('att-overlay').addEventListener('click',function(e){ if(e.target===this) closeSheet(); });
+  $('lightbox').onclick=function(){ this.style.display='none'; $('lb-img').src=''; };
+}
+
+/* ---------- videollamada ---------- */
+var sess=null, tInt=null, t0=0, incoming=null, vibInt=null;
+function vcShow(state){
+  $('vc-idle').style.display=state==='live'?'none':'flex';
+  $('vc-remote').style.display=state==='live'?'block':'none';
+  $('vc-local').style.display=state==='idle'?'none':'block';
+  $('vc-ctl-idle').style.display=state==='idle'?'block':'none';
+  $('vc-ctl-calling').style.display=state==='calling'?'block':'none';
+  $('vc-ctl-live').style.display=state==='live'?'flex':'none';
+  $('vc-live').style.display=state==='live'?'inline-flex':'none';
+  $('vc-timer').style.display=state==='live'?'block':'none';
+}
+function vcStatus(t){ $('vc-status').textContent=t; }
+function vcTimer(on){
+  clearInterval(tInt); if(!on) return;
+  t0=Date.now(); $('vc-timer').textContent='● 00:00';
+  tInt=setInterval(function(){ $('vc-timer').textContent='● '+mmss(Date.now()-t0); },1000);
+}
+function resetCtl(){
+  $('vc-mic').innerHTML='<i class="bi bi-mic-fill"></i>'; $('vc-cam').innerHTML='<i class="bi bi-camera-video-fill"></i>';
+  $('vc-mic').classList.remove('off'); $('vc-cam').classList.remove('off');
+}
+function vcHooks(){
+  return {
+    onLocal:function(st){ $('vc-local').srcObject=st; },
+    onRemote:function(st){ $('vc-remote').srcObject=st; },
+    onAnswered:function(){ vcStatus('Conectando…'); },
+    onState:function(s){ if(s==='connected'){ vcShow('live'); vcTimer(true); } },
+    onEnd:function(why){
+      sess=null; vcTimer(false); resetCtl();
+      $('vc-local').srcObject=null; $('vc-remote').srcObject=null;
+      vcShow('idle');
+      var msg={local:'Llamada finalizada',remota:'La enfermería finalizó la llamada',rechazada:'La enfermería no pudo atender ahora',
+               sin_respuesta:'Nadie atendió todavía. Probá de nuevo o escribinos por el chat.',falla:'Se perdió la conexión'}[why]||'Llamada finalizada';
+      vcStatus(msg); toast(msg);
+    }
+  };
+}
+window.vcCall=function(){
+  if(sess) return;
+  if(!DB||!user){ toast('Necesitás conexión con la central para llamar'); return; }
+  vcShow('calling'); vcStatus('Llamando a enfermería…');
+  sess=new CallSession(DB,user.uid,true,vcHooks());
+  sess.start({de:'paciente',nombre:user.nombre+' '+user.apellido}).then(function(){
+    evento('videollamada',{texto:'Solicita videollamada'});
+  }).catch(function(e){ sess=null; vcShow('idle'); vcStatus('Listo para llamar'); toast(callErr(e)); });
+};
+window.vcHang=function(){ if(sess) sess.hangup(); };
+window.vcBack=function(){ if(sess) sess.hangup(); goTo('home'); };
+window.vcMic=function(){
+  if(!sess) return; var on=sess.toggle('mic'); var b=$('vc-mic');
+  b.innerHTML='<i class="bi bi-mic'+(on?'':'-mute')+'-fill"></i>'; b.classList.toggle('off',!on);
+};
+window.vcCamTog=function(){
+  if(!sess) return; var on=sess.toggle('cam'); var b=$('vc-cam');
+  b.innerHTML='<i class="bi bi-camera-video'+(on?'':'-off')+'-fill"></i>'; b.classList.toggle('off',!on);
+};
+function hideIncoming(){ incoming=null; $('call-incoming').style.display='none'; clearInterval(vibInt); }
+function showIncoming(v){
+  if(incoming) return; incoming=v;
+  $('call-incoming').style.display='flex';
+  function vib(){ try{ if(navigator.vibrate) navigator.vibrate([400,200,400]); }catch(e){} }
+  vib(); vibInt=setInterval(vib,2500);
+}
+window.vcAccept=function(){
+  var v=incoming; if(!v||sess) return; hideIncoming();
+  goTo('video'); vcShow('calling'); vcStatus('Conectando…');
+  sess=new CallSession(DB,user.uid,false,vcHooks());
+  sess.answer(v.offer).catch(function(e){ sess=null; vcShow('idle'); vcStatus('Listo para llamar'); toast(callErr(e)); });
+};
+window.vcDecline=function(){
+  hideIncoming();
+  DB.ref('llamadas/'+user.uid).update({estado:'rechazada'}).catch(function(){});
+};
+function wireCall(){
+  vcShow('idle'); vcStatus('Listo para llamar');
+  if(!DB) return;
+  DB.ref('llamadas/'+user.uid).on('value',function(s){
+    if(sess) return;
+    var v=s.val();
+    if(v&&v.de==='central'&&v.estado==='llamando'&&v.offer&&fresh(v.ts)) showIncoming(v); else if(incoming) hideIncoming();
+  });
+  window.addEventListener('pagehide',function(){ if(sess) sess.hangup(); });
+}
+
 /* ---------- arranque ---------- */
 function start(){
   $('reg-overlay').style.display='none';
   paintUser(); paintVitals(vit); initChat();
-  wireSymptoms(); wireMeds(); wireActivities(); wireMisc();
+  wireSymptoms(); wireMeds(); wireActivities(); wireMisc(); wireMedia(); wireCall();
   if(!DB) return;
   DB.ref('.info/connected').on('value',function(s){
     if(s.val()!==true) return;
