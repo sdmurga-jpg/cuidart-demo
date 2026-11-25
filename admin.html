@@ -626,7 +626,7 @@ tr.hoverable:hover td { background:var(--bg-hover); cursor:pointer; }
   <div class="nav-item" onclick="navigate('analytics')"><i class="bi bi-graph-up-arrow nav-icon"></i> Analytics</div>
   <div class="nav-section">Sistema</div>
   <div class="nav-item" onclick="navigate('ia')"><i class="bi bi-robot nav-icon"></i> IA Clínica <span class="nav-badge" style="background:var(--purple)">NEW</span></div>
-  <div class="nav-item" onclick="showToast('Configuración del sistema','info')"><i class="bi bi-sliders2 nav-icon"></i> Configuración</div>
+  <div class="nav-item" onclick="openConfig()"><i class="bi bi-sliders2 nav-icon"></i> Configuración</div>
 </nav>
 
 <!-- MAIN CONTENT -->
@@ -1639,7 +1639,7 @@ function renderAlertas() {
         <div class="alert-actions">
           <button class="btn btn-primary btn-sm" onclick="showToast('Atendiendo alerta','info')"><i class="bi bi-person-check"></i> Atender</button>
           <button class="btn btn-ghost btn-sm" onclick="showToast('Caso escalado al médico','warning')"><i class="bi bi-arrow-up-circle"></i> Escalar</button>
-          <button class="btn btn-ghost btn-sm" onclick="this.closest('.alert-item').style.opacity='0.4';showToast('Alerta resuelta','success')"><i class="bi bi-check2"></i> Resolver</button>
+          <button class="btn btn-ghost btn-sm" onclick="resolveAlert('${a.id}')"><i class="bi bi-check2"></i> Resolver</button>
         </div>
       </div>
       <div style="text-align:right">${alertBadge(a.level)}<div class="td-mono" style="font-size:10px;color:var(--text-muted);margin-top:4px">${timeAgo(a.time)}</div></div>
@@ -1652,7 +1652,7 @@ function renderAlertas() {
         <div class="alert-meta">${a.patient.name} · Hace ${timeAgo(a.time)}</div>
         <div class="alert-actions">
           <button class="btn btn-ghost btn-sm" onclick="showToast('Registrando intervención...','info')"><i class="bi bi-pencil"></i> Intervenir</button>
-          <button class="btn btn-ghost btn-sm" onclick="this.closest('.alert-item').style.opacity='0.4';showToast('Alerta resuelta','success')"><i class="bi bi-check2"></i> OK</button>
+          <button class="btn btn-ghost btn-sm" onclick="resolveAlert('${a.id}')"><i class="bi bi-check2"></i> OK</button>
         </div>
       </div>
       <div>${alertBadge(a.level)}</div>
@@ -3134,12 +3134,51 @@ function beep(){
   }catch(e){}
 }
 
+/* ---------- notificaciones del sistema (Notification API + service worker) ---------- */
+var swReg=null;
+(function(){
+  try{
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.register('sw.js').catch(function(){});
+      navigator.serviceWorker.ready.then(function(r){ swReg=r; }).catch(function(){});
+    }
+  }catch(e){}
+})();
+function notifState(){
+  if(!('Notification' in window)) return 'unsupported';
+  return Notification.permission;                       // default | granted | denied
+}
+function askNotif(cb){
+  var st=notifState();
+  if(st!=='default'){ if(cb) cb(st); return; }
+  var done=false;
+  function fin(r){ if(done) return; done=true; if(cb) cb(r); }
+  try{
+    var p=Notification.requestPermission(fin);
+    if(p&&p.then) p.then(fin);
+  }catch(e){ fin('denied'); }
+}
+/* opt.always = avisar aunque la pestaña esté a la vista (emergencias, caídas, llamadas) */
+function sysNotify(title,body,opt){
+  opt=opt||{};
+  if(notifState()!=='granted') return;
+  var visible=(!document.hidden)&&(typeof document.hasFocus==='function'?document.hasFocus():true);
+  if(visible&&!opt.always) return;
+  var o={body:String(body||''),vibrate:[250,120,250],requireInteraction:!!opt.sticky};
+  if(opt.tag){ o.tag=opt.tag; o.renotify=true; }
+  try{
+    if(swReg&&swReg.showNotification) swReg.showNotification(title,o);
+    else new Notification(title,o);
+  }catch(e){ try{ new Notification(title,o); }catch(x){} }
+}
+
 /* ---------- PIN ---------- */
 window.pinCheck=function(){
   var pin=String(window.CUIDART_ADMIN_PIN||'2026');
   if($('pin-input').value===pin){
     try{ sessionStorage.setItem('cuidart_admin_ok','1'); }catch(e){}
     $('pin-gate').style.display='none';
+    try{ askNotif(); }catch(e){}
   } else { $('pin-error').textContent='PIN incorrecto'; $('pin-input').value=''; }
 };
 (function(){
@@ -3168,6 +3207,19 @@ function applyData(p,d){
   var v=d.vitales||{};
   if(v.sbp){ p.sbp=v.sbp; p.dbp=v.dbp; p.glucose=v.glu; p.spo2=v.spo2; p.hr=v.fc; }
   p.online=!!d.online; p.visto=d.visto||d.creado||Date.now(); p.lastTx=calcLast(p);
+  if(v.temp!==undefined) p.temp=Number(v.temp).toFixed(1);
+  if(d.nombre) p.name=(esc(d.nombre)+' '+esc(d.apellido||'')).trim();
+  if(d.estado){
+    var m={'Excelente':['Estable','Bajo'],'Atención':['Seguimiento','Medio'],'Urgente':['Urgente','Crítico']}[d.estado.l];
+    if(m){ p.status=m[0]; p.risk=m[1]; }
+  }
+  var pf=d.perfil||{};
+  if(pf.tel) p.phone=esc(pf.tel);
+  if(pf.dir) p.address=esc(pf.dir);
+  if(pf.cob) p.coverage=esc(pf.cob);
+  if(pf.alerg) p.allergies=esc(pf.alerg);
+  if(pf.dx) p.dx=esc(pf.dx);
+  p.meds=d.meds||{}; p.medsRes=d.medsRes||null; p.acts=d.acts||{};
 }
 function addPatient(uid,d){
   if(!d||!d.nombre||appPatients[uid]) return;
@@ -3193,6 +3245,7 @@ function updPatient(uid,d){
   applyData(np,d);
   var sub=$('chat-sub');
   if(sub && chatConvs[currentChat] && chatConvs[currentChat].uid===uid) window.loadChat(currentChat);
+  if(currentView==='medicacion') paintLiveMeds(); else if(currentView==='actividades') paintLiveActs();
   updateCounters();
 }
 function delPatient(uid){
@@ -3215,7 +3268,9 @@ function addAlert(np,type,level,t){
 var ICON={ingreso:['bi-person-plus-fill','var(--accent)'],mensaje:['bi-chat-dots-fill','var(--accent)'],
           sintomas:['bi-clipboard2-pulse-fill','var(--warning)'],medicacion:['bi-capsule-pill','var(--purple)'],
           actividad:['bi-clipboard2-check-fill','var(--success)'],emergencia:['bi-exclamation-octagon-fill','var(--danger)'],
-          imagen:['bi-image-fill','var(--accent)'],archivo:['bi-file-earmark-pdf-fill','var(--danger)'],videollamada:['bi-camera-video-fill','var(--purple)']};
+          imagen:['bi-image-fill','var(--accent)'],archivo:['bi-file-earmark-pdf-fill','var(--danger)'],videollamada:['bi-camera-video-fill','var(--purple)'],
+          caida:['bi-person-falling','var(--danger)'],caida_cancelada:['bi-person-check-fill','var(--success)'],
+          vitales:['bi-heart-pulse-fill','var(--warning)'],familia:['bi-people-fill','var(--accent)']};
 function sintomasResumen(vals){
   var arr=[]; for(var k in (vals||{})){ if(vals[k]>0) arr.push([k,vals[k]]); }
   arr.sort(function(a,b){ return b[1]-a[1]; });
@@ -3232,6 +3287,10 @@ function feedText(e){
     case 'imagen': return e.de==='enfermeria'?'recibió una foto de enfermería':'envió una foto';
     case 'archivo': return (e.de==='enfermeria'?'recibió: ':'envió: ')+esc(trunc(e.texto,60));
     case 'videollamada': return '📹 solicita una videollamada';
+    case 'caida': return '🚨 SUFRIÓ UNA CAÍDA';
+    case 'caida_cancelada': return 'canceló el aviso de caída (fue un error)';
+    case 'vitales': return '⚠️ '+esc(trunc(e.texto,90));
+    case 'familia': return esc(trunc(e.texto||'actualizó su familia',90));
   }
   return esc(e.tipo);
 }
@@ -3271,6 +3330,10 @@ function onEvent(snap){
     conv.messages.push(mm);
     if(conv.messages.length>200) conv.messages.shift();
     var viewing=(currentView==='mensajeria' && chatConvs[currentChat]===conv);
+    if(!fromNurse){
+      var hid=document.hidden||!document.hasFocus();
+      if(loaded&&(hid||!viewing)) sysNotify('💬 '+np.name,e.tipo==='imagen'?'Te envió una foto':(e.tipo==='archivo'?'Te envió un archivo':trunc(e.texto,100)),{tag:'msg-'+e.uid});
+    }
     if(!fromNurse && !viewing){
       conv.unread++;
       if(loaded) showToast('💬 '+np.name+': '+esc(trunc(e.texto,50)),'info');
@@ -3279,7 +3342,7 @@ function onEvent(snap){
   }
   if(e.tipo==='videollamada'){
     addAlert(np,'📹 Solicita videollamada','important',t);
-    if(loaded){ showToast('📹 '+np.name+' solicita una videollamada','info'); }
+    if(loaded){ showToast('📹 '+np.name+' solicita una videollamada','info'); sysNotify('📹 '+np.name,'Solicita una videollamada',{always:true,tag:'vc-'+e.uid}); }
   }
   if(e.tipo==='sintomas'){
     var mx=Number(e.max)||0;
@@ -3287,17 +3350,32 @@ function onEvent(snap){
       var lvl=mx>=4?'important':'moderate';
       addAlert(np,'Síntomas reportados: '+sintomasResumen(e.valores),lvl,t);
       if(mx>=4 && np.status==='Estable'){ np.status='Seguimiento'; np.risk='Alto'; }
-      if(loaded) showToast('📋 '+np.name+' reportó síntomas ('+(mx>=4?'intensos':'moderados')+')',mx>=4?'warning':'info');
+      if(loaded){ showToast('📋 '+np.name+' reportó síntomas ('+(mx>=4?'intensos':'moderados')+')',mx>=4?'warning':'info'); if(mx>=4) sysNotify('📋 '+np.name,'Reportó síntomas intensos: '+sintomasResumen(e.valores).replace(/&[a-z#0-9]+;/g,''),{tag:'sint-'+e.uid}); }
     }
   }
-  if(e.tipo==='medicacion' && e.accion!=='Tomado'){
+  if(e.tipo==='medicacion' && (e.accion==='No tomado'||e.accion==='Atrasado')){
     addAlert(np,'Falta de medicación: '+esc(e.medicamento)+' ('+esc(e.accion)+')','moderate',t);
-    if(loaded) showToast('💊 '+np.name+': '+esc(e.accion)+' '+esc(e.medicamento),'warning');
+    if(loaded){ showToast('💊 '+np.name+': '+esc(e.accion)+' '+esc(e.medicamento),'warning'); sysNotify('💊 '+np.name,e.accion+': '+String(e.medicamento||'').slice(0,50),{tag:'med-'+e.uid+'-'+e.medicamento}); }
   }
   if(e.tipo==='emergencia'){
     addAlert(np,'🚨 Emergencia · Necesito ayuda ahora','critical',t);
     np.status='Urgente'; np.risk='Crítico';
-    if(loaded){ showToast('🚨 EMERGENCIA · '+np.name+' pidió ayuda ahora','danger'); beep(); }
+    if(loaded){ showToast('🚨 EMERGENCIA · '+np.name+' pidió ayuda ahora','danger'); beep(); sysNotify('🚨 EMERGENCIA · '+np.name,'Pidió ayuda ahora',{always:true,sticky:true,tag:'emer-'+e.uid}); }
+  }
+  if(e.tipo==='caida'){
+    addAlert(np,'🚨 Caída · el paciente avisó que se cayó','critical',t);
+    np.status='Urgente'; np.risk='Crítico';
+    if(loaded){ showToast('🚨 CAÍDA · '+np.name+' sufrió una caída','danger'); beep(); sysNotify('🚨 CAÍDA · '+np.name,'Avisó que sufrió una caída',{always:true,sticky:true,tag:'caida-'+e.uid}); }
+  }
+  if(e.tipo==='caida_cancelada'){
+    alerts.forEach(function(a){ if(a.patient===np&&/Caída/.test(a.type)) a.resolved=true; });
+    if(loaded) showToast('ℹ️ '+np.name+' canceló el aviso de caída','info');
+  }
+  if(e.tipo==='vitales'){
+    var crit=e.nivel==='crit';
+    addAlert(np,'Signo vital fuera de rango: '+esc(trunc(e.texto,80)),crit?'critical':'moderate',t);
+    if(loaded){ showToast('⚠️ '+np.name+': '+esc(trunc(e.texto,60)),crit?'danger':'warning'); if(crit) beep();
+      sysNotify((crit?'🚨 ':'⚠️ ')+np.name,String(e.texto||'Signo vital fuera de rango').slice(0,100),{always:crit,tag:'vit-'+e.uid+'-'+e.variable}); }
   }
   if(loaded){ renderFeed(); softRefresh(); }
 }
@@ -3319,9 +3397,76 @@ function updateCounters(){
   alerts.forEach(function(a){ if(a.patient&&a.patient.isApp&&!a.resolved) open++; });
   var li=document.querySelector('.live-indicator');
   if(li) li.innerHTML='<div class="pulse"></div> LIVE · '+(47+uids.length)+' pacientes';
-  var b=document.querySelector('.nav-item[onclick*="\'mensajeria\'"] .nav-badge'); if(b) b.textContent=8+unread;
-  var a=document.querySelector('.nav-item[onclick*="\'alertas\'"] .nav-badge'); if(a) a.textContent=12+open;
+  var allUnread=0, allOpen=0, medOver=0;
+  chatConvs.forEach(function(c){ allUnread+=c.unread||0; });
+  alerts.forEach(function(a){ if(!a.resolved) allOpen++; });
+  uids.forEach(function(u){ var m=appPatients[u].meds||{}; for(var k in m){ if(m[k]&&(m[k].k==='atrasado'||m[k].k==='no_tomado')) medOver++; } });
+  function setB(sel,n){ var el=document.querySelector(sel); if(el){ el.textContent=n; el.style.display=n>0?'':'none'; } }
+  setB('.nav-item[onclick*="\'mensajeria\'"] .nav-badge',allUnread);
+  setB('.nav-item[onclick*="\'alertas\'"] .nav-badge',allOpen);
+  setB('.nav-item[onclick*="\'medicacion\'"] .nav-badge',medOver);
+  var ch=document.querySelector('.chat-list-header .nav-badge'); if(ch){ ch.textContent=allUnread; ch.style.display=allUnread>0?'':'none'; }
 }
+window.resolveAlert=function(id){
+  alerts.forEach(function(a){ if(String(a.id)===String(id)) a.resolved=true; });
+  showToast('Alerta resuelta','success');
+  try{ renderAlertas(); }catch(e){}
+  updateCounters();
+};
+/* secciones "pacientes de la app" en Medicación y Actividades */
+function liveBox(view,id,title){
+  var v=$('view-'+view); if(!v) return null;
+  var b=$(id);
+  if(!b){ b=document.createElement('div'); b.id=id; b.className='card mb-16'; var ph=v.querySelector('.page-header'); if(ph&&ph.nextSibling) v.insertBefore(b,ph.nextSibling); else v.appendChild(b); }
+  b.innerHTML='<div class="card-title"><i class="bi bi-phone-fill text-accent"></i> '+title+'</div>';
+  return b;
+}
+var MC={tomado:['var(--success)','Tomado'],atrasado:['var(--danger)','Atrasado'],no_tomado:['var(--danger)','No tomado'],pospuesto:['var(--warning)','Pospuesto'],pendiente:['var(--warning)','Pendiente'],proximo:['var(--text-muted)','Próxima'],previo:['var(--text-muted)','Previa al ingreso']};
+function paintLiveMeds(){
+  var b=liveBox('medicacion','live-meds','PACIENTES DE LA APP · MEDICACIÓN DE HOY (EN VIVO)'); if(!b) return;
+  var us=Object.keys(appPatients);
+  if(!us.length){ b.innerHTML+='<div style="color:var(--text-muted);font-size:12px;padding:10px">Todavía no hay pacientes registrados desde la app.</div>'; return; }
+  b.innerHTML+=us.map(function(u){
+    var p=appPatients[u], r=p.medsRes||{pct:100,ok:0,ap:0,tarde:0,atr:0,nt:0}, m=p.meds||{};
+    var rows=Object.keys(m).map(function(k){ return m[k]; }).sort(function(a,b){ return String(a.h).localeCompare(String(b.h)); }).map(function(x){
+      var c=MC[x.k]||MC.proximo, lab=(x.k==='tomado'&&x.l)?'Tomado con demora':c[1];
+      return '<span style="display:inline-flex;gap:6px;align-items:center;font-size:12px;margin:3px 10px 3px 0"><i class="bi bi-capsule-pill" style="color:'+c[0]+'"></i>'+esc(x.n)+' <span style="color:'+c[0]+';font-weight:700">'+esc(x.h)+' · '+lab+'</span></span>';
+    }).join('');
+    var col=r.pct>=80?'var(--success)':(r.pct>=50?'var(--warning)':'var(--danger)');
+    return '<div style="padding:10px 0;border-top:1px solid var(--border)"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><strong>'+p.name+'</strong>'+
+      '<span style="font-size:12px;color:'+col+';font-weight:700">'+r.pct+'% a tiempo · '+r.ok+'/'+r.ap+' tomadas · '+r.atr+' atrasadas · '+r.nt+' no tomadas</span></div><div style="margin-top:4px">'+(rows||'<span style="font-size:12px;color:var(--text-muted)">Sin datos</span>')+'</div></div>';
+  }).join('');
+}
+function paintLiveActs(){
+  var b=liveBox('actividades','live-acts','PACIENTES DE LA APP · ACTIVIDADES DE HOY (EN VIVO)'); if(!b) return;
+  var us=Object.keys(appPatients);
+  if(!us.length){ b.innerHTML+='<div style="color:var(--text-muted);font-size:12px;padding:10px">Todavía no hay pacientes registrados desde la app.</div>'; return; }
+  var L={completada:['var(--success)','Completada'],en_curso:['var(--accent)','En curso'],pendiente:['var(--warning)','Pendiente']};
+  b.innerHTML+=us.map(function(u){
+    var p=appPatients[u], a=p.acts||{}, done=0, tot=0;
+    var rows=Object.keys(a).map(function(k){ var x=a[k]; tot++; if(x.k==='completada') done++; var c=L[x.k]||L.pendiente;
+      return '<span style="display:inline-flex;gap:6px;align-items:center;font-size:12px;margin:3px 10px 3px 0"><i class="bi bi-clipboard2-check" style="color:'+c[0]+'"></i>'+esc(x.n)+' <span style="color:'+c[0]+';font-weight:700">'+c[1]+'</span></span>'; }).join('');
+    return '<div style="padding:10px 0;border-top:1px solid var(--border)"><div style="display:flex;justify-content:space-between"><strong>'+p.name+'</strong><span style="font-size:12px;color:var(--text-muted)">'+done+' de '+tot+' completadas</span></div><div style="margin-top:4px">'+rows+'</div></div>';
+  }).join('');
+}
+var _rm=window.renderMedicacion; window.renderMedicacion=function(){ _rm(); paintLiveMeds(); };
+var _ra=window.renderActividades; window.renderActividades=function(){ _ra(); paintLiveActs(); };
+/* Configuración real */
+window.openConfig=function(){
+  var m=$('cfg-modal');
+  if(!m){ m=document.createElement('div'); m.id='cfg-modal'; m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px';
+    m.addEventListener('click',function(e){ if(e.target===m) m.style.display='none'; }); document.body.appendChild(m); }
+  var st=notifState(), lab={granted:'Activadas ✅',denied:'Bloqueadas en el navegador ❌',default:'Sin activar',unsupported:'No compatible con este navegador'}[st]||st;
+  m.innerHTML='<div style="background:var(--bg-card,#fff);color:var(--text-primary);border:1px solid var(--border);border-radius:16px;max-width:440px;width:100%;padding:22px">'+
+    '<div style="font-size:18px;font-weight:700;margin-bottom:14px"><i class="bi bi-sliders2"></i> Configuración</div>'+
+    '<div style="margin-bottom:14px"><div style="font-weight:700;font-size:13px">Notificaciones del sistema</div><div style="font-size:12px;color:var(--text-muted);margin:3px 0 8px">Estado: '+lab+'. Avisan mensajes, llamadas, caídas, emergencias y alertas aunque la pestaña esté en segundo plano (la página debe seguir abierta).</div>'+
+    (st==='default'?'<button class="btn btn-primary btn-sm" onclick="askNotif(function(){openConfig()})"><i class="bi bi-bell"></i> Activar notificaciones</button>':'')+
+    (st==='granted'?'<button class="btn btn-ghost btn-sm" onclick="sysNotify(\'CuidarT\',\'Así se verá un aviso 🔔\',{always:true})"><i class="bi bi-bell"></i> Probar aviso</button>':'')+
+    (st==='denied'?'<div style="font-size:12px;color:var(--warning)">Habilitalas desde el candado de la barra de direcciones → Notificaciones → Permitir.</div>':'')+'</div>'+
+    '<div style="margin-bottom:14px;font-size:12px;color:var(--text-muted)"><b style="color:var(--text-primary)">PIN de acceso:</b> se cambia en <code>firebase-config.js</code> (CUIDART_ADMIN_PIN).</div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn btn-ghost btn-sm" onclick="resetDemo()"><i class="bi bi-arrow-counterclockwise"></i> Reiniciar demo</button><button class="btn btn-primary btn-sm" onclick="document.getElementById(\'cfg-modal\').style.display=\'none\'">Cerrar</button></div></div>';
+  m.style.display='flex';
+};
 var _rd=window.renderDashboard;
 window.renderDashboard=function(){
   _rd();
